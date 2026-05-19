@@ -329,7 +329,83 @@
       box-shadow: 0 0 12px rgba(232,0,61,0.55);
       transform: scale(1.08);
     }
+
+    /* ─── 모바일 반응형 ─── */
+    @media (max-width: 600px) {
+      .lobby-root {
+        height: 100dvh;
+        overflow-y: auto;
+        justify-content: flex-start;
+        padding: 20px 16px 80px;
+      }
+
+      .screen {
+        max-width: 100%;
+        gap: 16px;
+      }
+
+      #screen-waiting {
+        max-width: 100%;
+      }
+
+      .uno-logo {
+        font-size: clamp(2.2rem, 10vw, 3.5rem) !important;
+      }
+
+      .main-subtitle { font-size: 0.9rem; }
+
+      .main-buttons .btn {
+        font-size: 1rem;
+        padding: 15px;
+      }
+
+      .lobby-form {
+        padding: 20px 16px;
+        gap: 14px;
+      }
+
+      .form-title { font-size: 1.2rem; }
+
+      .avatar-selector-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
+      }
+
+      .avatar-select-btn {
+        font-size: 1.25rem;
+        padding: 6px;
+        border-radius: 10px;
+      }
+
+      .room-code-value { font-size: 2.1rem; }
+
+      .player-item {
+        padding: 10px 12px;
+        gap: 10px;
+      }
+
+      .player-avatar { font-size: 1.4rem; }
+      .player-name { font-size: 0.88rem; }
+
+      #input-room-code {
+        font-size: 1.2rem;
+        letter-spacing: 0.3em;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .avatar-selector-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 4px;
+      }
+      .avatar-select-btn {
+        font-size: 1.1rem;
+        padding: 5px;
+      }
+      .room-code-value { font-size: 1.8rem; }
+    }
   </style>
+
 </head>
 <body>
 

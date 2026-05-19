@@ -11,6 +11,7 @@
   height: 100vh;
   gap: 0;
   overflow: hidden;
+  position: relative; /* 모바일 오버레이 포지셔닝 기준점 */
 }
 
 /* 헤더 */
@@ -648,20 +649,227 @@ body.my-turn .game-table::after {
 }
 
 /* ─── 반응형 ────────────────────────────────── */
+
+/* ── 태블릿 (900px 이하) ── */
 @media (max-width: 900px) {
   .game-root {
-    grid-template-columns: 170px 1fr;
+    grid-template-columns: 160px 1fr;
     grid-template-rows: 50px 1fr auto;
   }
   .game-info-sidebar { display: none; }
+
+  .card-piles { gap: 18px; }
+
+  .my-hand-area {
+    min-height: 170px;
+    max-height: 210px;
+  }
 }
 
+/* ── 모바일 (600px 이하) ── */
 @media (max-width: 600px) {
+  /* 전체 레이아웃: 헤더 + 중앙(+플레이어 오버레이) + 손패 */
   .game-root {
     grid-template-columns: 1fr;
-    grid-template-rows: 50px 1fr auto;
+    grid-template-rows: 44px 1fr auto;
+    height: 100dvh; /* dynamic viewport height - 주소창 제외 */
   }
-  .players-sidebar { display: none; }
-  .hand-card { margin-right: -28px; }
-  .my-hand-area { min-height: 165px; max-height: 200px; }
+
+  /* 헤더 축소 */
+  .game-header {
+    padding: 0 12px;
+    font-size: 0.8rem;
+  }
+  .game-header-logo { font-size: 1rem; letter-spacing: 1px; }
+  .game-header-room { font-size: 0.7rem; }
+
+  /* 오른쪽 사이드바 숨김 */
+  .game-info-sidebar { display: none; }
+
+  /* 플레이어 사이드바 → 중앙 위에 수평 오버레이로 변환 */
+  .players-sidebar {
+    grid-column: 1;
+    grid-row: 2;
+    position: absolute;
+    top: 44px;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 10px;
+    gap: 6px;
+    background: rgba(0,0,0,0.72);
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    max-height: 68px;
+    scrollbar-width: none;
+  }
+  .players-sidebar::-webkit-scrollbar { display: none; }
+
+  /* 플레이어 아이템 가로 나열용 축소 */
+  .player-sidebar-item {
+    flex-direction: row;
+    padding: 5px 8px;
+    min-width: 90px;
+    max-width: 120px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    gap: 5px;
+  }
+  .player-sidebar-avatar { font-size: 1.2rem; }
+  .player-sidebar-name { font-size: 0.7rem; }
+  .player-sidebar-cards { margin-top: 1px; gap: 2px; }
+  .card-count-badge { font-size: 1.1rem; min-width: 18px; }
+  .card-count-label { font-size: 0.6rem; }
+  .turn-arrow { font-size: 1rem; width: 18px; }
+
+  /* 게임 테이블: 플레이어 오버레이 높이(68px)만큼 상단 여백 */
+  .game-table {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 80px 8px 8px; /* 오버레이(68px) + 여유(12px) */
+    gap: 10px;
+  }
+
+  /* 카드 더미 축소 */
+  .card-piles { gap: 14px; }
+
+  #discard-pile,
+  #draw-pile {
+    width: 68px;
+    height: 98px;
+  }
+
+  #deck-count {
+    width: 20px;
+    height: 20px;
+    font-size: 0.6rem;
+    top: -8px;
+    right: -8px;
+  }
+
+  /* 현재 색상 원 축소 */
+  #current-color {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* 방향 인디케이터 */
+  #direction-indicator { font-size: 1.4rem; }
+
+  /* 내 턴 인디케이터 */
+  #my-turn-indicator {
+    font-size: 0.72rem;
+    padding: 6px 14px;
+  }
+
+  /* 액션 로그 */
+  #action-log { font-size: 0.72rem; min-height: 28px; }
+
+  /* ── 손패 영역 ── */
+  .my-hand-area {
+    min-height: 150px;
+    max-height: 185px;
+    padding: 8px 10px 10px;
+  }
+
+  .hand-area-top {
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .hand-info { font-size: 0.74rem; }
+
+  /* 손패 카드 크기 줄이기 */
+  #my-hand {
+    padding: 4px 12px 2px;
+    justify-content: flex-start; /* 많을 때 스크롤 */
+  }
+
+  /* JS에서 카드 SVG width/height를 90x130으로 고정 생성하므로,
+     CSS로 강제 축소 */
+  .hand-card {
+    margin-right: -28px;
+    transform-origin: bottom center;
+  }
+
+  /* 카드 SVG 크기를 CSS로 강제 변환 (모바일) */
+  .hand-card svg {
+    width: 62px !important;
+    height: 90px !important;
+  }
+
+  .hand-card:hover { transform: translateY(-20px) scale(1.08); }
+  .hand-card.selected { transform: translateY(-26px) scale(1.1); }
+
+  /* 버튼 축소 */
+  #btn-draw {
+    padding: 6px 12px !important;
+    font-size: 0.76rem !important;
+  }
+
+  #btn-uno {
+    font-size: 0.82rem !important;
+    padding: 8px 14px !important;
+  }
+
+  .emote-toggle-btn {
+    padding: 5px 9px;
+    font-size: 1rem;
+  }
+
+  /* 이모지 팝업 위치 조정 */
+  .emote-list {
+    left: auto;
+    right: 0;
+    transform: none;
+    bottom: calc(100% + 8px);
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  @keyframes emoteListPop {
+    from { opacity: 0; transform: scale(0.85) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .emote-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.3rem;
+  }
+
+  /* 모달 */
+  .modal-content {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+  .modal-title { font-size: 1.4rem; }
+  .modal-msg { font-size: 0.88rem; margin-bottom: 18px; }
+
+  /* DrawCount 배지 */
+  #draw-count-badge { font-size: 0.82rem; padding: 3px 9px; }
+
+  /* 플로팅 메시지 */
+  #float-msg {
+    font-size: 0.92rem;
+    padding: 12px 22px;
+    max-width: 88vw;
+    text-align: center;
+  }
 }
+
+/* ── 초소형 기기 (380px 이하) ── */
+@media (max-width: 380px) {
+  .hand-card svg {
+    width: 54px !important;
+    height: 78px !important;
+  }
+  .hand-card { margin-right: -22px; }
+
+  .players-sidebar { max-height: 60px; }
+  .game-table { padding-top: 72px; }
+}
+

@@ -35,7 +35,6 @@ let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
 let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
 let isHandlingPenalty = false; // 패널티 중복 처리 방지 락 플래그
 let isLeaving = false;       // 퇴장 중복 방지 플래그
-let isNormalRedirect = false; // 정상적인 대기실 이동 시 beforeunload 방지 플래그
 let unoCooldown = false;     // UNO 버튼 쿨타임 상태 플래그
 let unoCooldownTimer = null; // 쿨타임 타이머
 let lastProcessedPenaltyTimestamp = 0; // 중복 패널티 처리 방지용 타임스탬프
@@ -100,7 +99,7 @@ function listenToGame() {
 
     if (room.status === 'waiting') {
       // 대기실 상태로 전환되면 lobby (index.html)로 복귀 (세션 유지)
-      isNormalRedirect = true;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.location.href = 'index.html';
       return;
     }
@@ -1069,6 +1068,11 @@ function showEmotePopupSelf(emote) {
 
 // ─── 이벤트 바인딩 ───────────────────────────────
 
+// 브라우저 닫기/새로고침 시 이탈 처리 핸들러
+const handleBeforeUnload = () => {
+  leaveGameRoom();
+};
+
 function bindGameEvents() {
   // 카드 뽑기
   document.getElementById('draw-pile')?.addEventListener('click', handleDrawCard);
@@ -1082,7 +1086,7 @@ function bindGameEvents() {
 
   // 게임 종료 후 대기실 복귀
   document.getElementById('btn-back-lobby')?.addEventListener('click', async () => {
-    isNormalRedirect = true;
+    window.removeEventListener('beforeunload', handleBeforeUnload);
     if (isHost) {
       try {
         await update(ref(database, `rooms/${myRoomCode}`), {
@@ -1110,9 +1114,7 @@ function bindGameEvents() {
   });
 
   // 브라우저 닫기/새로고침 시 이탈 처리
-  window.addEventListener('beforeunload', () => {
-    leaveGameRoom();
-  });
+  window.addEventListener('beforeunload', handleBeforeUnload);
 }
 
 // ─── 유틸리티 ────────────────────────────────────
@@ -1135,7 +1137,6 @@ function getAvatar(playerIdOrName, roomData) {
 
 // ─── 중간 이탈자 방출 처리 ────────────────────────
 async function leaveGameRoom() {
-  if (isNormalRedirect) return;
   if (isLeaving) return;
   isLeaving = true;
 
@@ -1174,7 +1175,7 @@ async function leaveGameRoom() {
         updates[`rooms/${myRoomCode}/winnerPlayerId`] = null;
         updates[`rooms/${myRoomCode}/emotes`] = null;
 
-        isNormalRedirect = true;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
         await update(ref(database), updates);
 
         // 나간 플레이어도 세션 유지한 상태로 index.html로 복귀 (대기방 자동 진입)

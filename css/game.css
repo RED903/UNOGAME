@@ -443,31 +443,16 @@
   font-family: inherit;
 }
 
-/* UNO 선언 모드 (노란색 - 긴박한 느낌) */
-#btn-uno.btn-uno-call {
+/* UNO 선언 모드, 잡기 모드, 평소 상태를 모두 단일 스타일로 통합 */
+#btn-uno.btn-uno-call,
+#btn-uno.btn-uno-catch,
+#btn-uno.btn-uno-disabled {
   background: linear-gradient(135deg, #FFD900, #FF8C00);
   color: #1A0000;
   box-shadow: 0 4px 20px rgba(255,210,0,0.6);
-  animation: unoPulse 1s ease-in-out infinite;
-}
-
-/* UNO 잡기 모드 (빨간색 - 공격적인 느낌) */
-#btn-uno.btn-uno-catch {
-  background: linear-gradient(135deg, #FF1744, #B71C1C);
-  color: white;
-  box-shadow: 0 4px 20px rgba(255,23,68,0.6);
-  animation: catchPulse 0.7s ease-in-out infinite alternate;
-}
-
-/* UNO 평소 상태 (회색 비활성화) */
-#btn-uno.btn-uno-disabled {
-  background: linear-gradient(135deg, #555555, #3a3a3a);
-  color: #a0a0a0;
-  border: 1px solid #2a2a2a;
-  box-shadow: none;
-  cursor: not-allowed;
-  opacity: 0.6;
-  animation: none;
+  opacity: 1;
+  cursor: pointer;
+  border: none;
 }
 
 #btn-uno:hover { transform: scale(1.1); filter: brightness(1.1); }

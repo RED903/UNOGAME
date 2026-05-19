@@ -296,6 +296,39 @@
       color: rgba(255,255,255,0.2);
       text-align: center;
     }
+
+    /* 프로필 아바타 선택기 */
+    .avatar-selector-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+    .avatar-select-btn {
+      font-size: 1.5rem;
+      padding: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+    }
+    .avatar-select-btn:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.25);
+      transform: scale(1.12);
+    }
+    .avatar-select-btn.selected {
+      background: rgba(232,0,61,0.16);
+      border-color: rgba(232,0,61,0.85);
+      box-shadow: 0 0 12px rgba(232,0,61,0.55);
+      transform: scale(1.08);
+    }
   </style>
 </head>
 <body>
@@ -349,6 +382,13 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">프로필 아바타 선택</label>
+          <div class="avatar-selector-grid" id="create-avatar-grid">
+            <!-- JS에서 동적으로 채움 -->
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="select-max-players">최대 인원</label>
           <select class="select-input" id="select-max-players">
             <option value="2">2명</option>
@@ -383,6 +423,13 @@
             autocomplete="off"
             spellcheck="false"
           />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">프로필 아바타 선택</label>
+          <div class="avatar-selector-grid" id="join-avatar-grid">
+            <!-- JS에서 동적으로 채움 -->
+          </div>
         </div>
 
         <div class="form-group">

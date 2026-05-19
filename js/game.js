@@ -34,6 +34,7 @@ let isHost = false;        // 방장 여부
 let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
 let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
 let isHandlingPenalty = false; // 패널티 중복 처리 방지 락 플래그
+let isLeaving = false;       // 퇴장 중복 방지 플래그
 
 // ─── 초기화 ──────────────────────────────────────
 
@@ -92,6 +93,12 @@ function listenToGame() {
     const room = snapshot.val();
     // 방장 여부 업데이트
     isHost = room.host === myPlayerId;
+
+    if (room.status === 'waiting') {
+      // 대기실 상태로 전환되면 lobby (index.html)로 복귀 (세션 유지)
+      window.location.href = 'index.html';
+      return;
+    }
 
     if (room.status === 'finished') {
       handleGameFinished(room);
@@ -272,6 +279,14 @@ function renderMyHand() {
   const countEl = document.getElementById('my-hand-count');
   if (countEl) countEl.textContent = myHand.length;
 
+  // 내 손패가 2장 이상인데 내가 UNO를 외친 상태로 저장되어 있다면 Firebase 상태 초기화
+  if (myHand.length > 1 && gameState && gameState.unoCalledBy === myPlayerId) {
+    update(ref(database, `rooms/${myRoomCode}/gameState`), {
+      unoCalledBy: null,
+      unoTimestamp: null
+    }).catch(err => console.error("UNO 외침 초기화 실패:", err));
+  }
+
   // 손패 갱신 시 UNO 버튼 상태 즉시 업데이트
   checkUnoStatus();
 }
@@ -403,7 +418,7 @@ function updatePlayerSidebars(room) {
     const countClass = handCount === 1 ? 'card-count-badge uno-alert' : 'card-count-badge';
 
     return `<div class="player-sidebar-item ${isActive ? 'active-player' : ''} ${isMe ? 'is-me' : ''}" data-pid="${pid}">
-      <div class="player-sidebar-avatar">${getAvatar(player.name)}</div>
+      <div class="player-sidebar-avatar">${getAvatar(pid, room)}</div>
       <div class="player-sidebar-info">
         <div class="player-sidebar-name">${escapeHtml(player.name)}${isMe ? ' (나)' : ''}${pid === room.host ? ' 👑' : ''}</div>
         <div class="player-sidebar-cards">
@@ -1024,27 +1039,155 @@ function bindGameEvents() {
   // 게임 다시 시작 (방장만)
   document.getElementById('btn-restart-game')?.addEventListener('click', handleRestartGame);
 
-  // 게임 종료 후 로비로
-  document.getElementById('btn-back-lobby')?.addEventListener('click', () => {
-    // 방은 삭제하지 않고 그냥 나가기
-    sessionStorage.removeItem('uno_room_code');
-    window.location.href = 'index.html';
+  // 게임 종료 후 대기실 복귀
+  document.getElementById('btn-back-lobby')?.addEventListener('click', async () => {
+    if (isHost) {
+      try {
+        await update(ref(database, `rooms/${myRoomCode}`), {
+          status: 'waiting',
+          gameState: null,
+          winnerName: null,
+          winnerPlayerId: null
+        });
+      } catch (err) {
+        console.error("대기실 복귀 처리 실패:", err);
+      }
+    } else {
+      window.location.href = 'index.html';
+    }
   });
 
   // 게임 나가기
   document.getElementById('btn-leave-game')?.addEventListener('click', () => {
     if (confirm('게임을 나가시겠습니까? 다른 플레이어들은 계속 진행됩니다.')) {
-      sessionStorage.removeItem('uno_room_code');
-      window.location.href = 'index.html';
+      leaveGameRoom();
     }
+  });
+
+  // 브라우저 닫기/새로고침 시 이탈 처리
+  window.addEventListener('beforeunload', () => {
+    leaveGameRoom();
   });
 }
 
 // ─── 유틸리티 ────────────────────────────────────
 
-function getAvatar(name) {
+function getAvatar(playerIdOrName, roomData) {
+  // 1) 방 데이터에서 커스텀 아바타(이모지) 추출 시도
+  if (roomData && roomData.players && roomData.players[playerIdOrName]) {
+    const player = roomData.players[playerIdOrName];
+    if (player.avatar) return player.avatar;
+  }
+
+  // 2) 이모지 문자열 자체가 전달된 경우 바로 반환
   const emojis = ['🦊', '🐱', '🐶', '🐻', '🐼', '🦁', '🐯', '🦝', '🐺', '🦄', '🐸', '🐙'];
-  return emojis[name?.charCodeAt(0) % emojis.length] || '🎮';
+  if (emojis.includes(playerIdOrName)) return playerIdOrName;
+
+  // 3) 폴백: 문자열 해시 코드를 기반으로 기본 배정
+  const nameStr = String(playerIdOrName || '플레이어');
+  return emojis[nameStr.charCodeAt(0) % emojis.length] || '🎮';
+}
+
+// ─── 중간 이탈자 방출 처리 ────────────────────────
+async function leaveGameRoom() {
+  if (isLeaving) return;
+  isLeaving = true;
+
+  try {
+    const roomRef = ref(database, `rooms/${myRoomCode}`);
+    const snap = await get(roomRef);
+    if (!snap.exists()) {
+      redirectToLobby();
+      return;
+    }
+
+    const room = snap.val();
+    const players = room.players || {};
+    const playerIds = Object.keys(players);
+
+    // 나를 제외한 남은 플레이어 목록
+    const remainingIds = playerIds.filter(id => id !== myPlayerId);
+
+    // 1) 나 혼자였던 방이면 방 삭제
+    if (remainingIds.length === 0) {
+      await remove(roomRef);
+      redirectToLobby();
+      return;
+    }
+
+    const updates = {};
+
+    // 2) 내가 호스트였으면 권한 위임
+    if (room.host === myPlayerId) {
+      updates[`rooms/${myRoomCode}/host`] = remainingIds[0];
+    }
+
+    // 3) 플레이어 목록에서 제거 및 손패 제거
+    updates[`rooms/${myRoomCode}/players/${myPlayerId}`] = null;
+    updates[`rooms/${myRoomCode}/hands/${myPlayerId}`] = null;
+    if (room.emotes && room.emotes[myPlayerId]) {
+      updates[`rooms/${myRoomCode}/emotes/${myPlayerId}`] = null;
+    }
+
+    // 4) 게임이 진행 중이었던 경우
+    if (room.status === 'playing' && room.gameState) {
+      const currentGameState = room.gameState;
+
+      if (remainingIds.length === 1) {
+        // 남은 플레이어가 1명이면 자동 승리 처리 및 대기실 복귀
+        updates[`rooms/${myRoomCode}/status`] = 'waiting';
+        updates[`rooms/${myRoomCode}/gameState`] = null;
+      } else {
+        // 2명 이상 남아있는 경우 순서 재조정 및 턴 넘기기
+        const currentOrder = currentGameState.playerOrder ? Object.values(currentGameState.playerOrder) : [];
+        const myIndex = currentOrder.indexOf(myPlayerId);
+
+        // 새 playerOrder 구성
+        const newOrderList = currentOrder.filter(id => id !== myPlayerId);
+        const newPlayerOrder = {};
+        newOrderList.forEach((id, i) => {
+          newPlayerOrder[i] = id;
+        });
+
+        // 현재 턴이 나였다면 다음 생존 플레이어에게 인계
+        let nextPlayer = currentGameState.currentPlayer;
+        if (currentGameState.currentPlayer === myPlayerId) {
+          const dir = currentGameState.direction || 1;
+          let nextIdx = (myIndex + dir + currentOrder.length) % currentOrder.length;
+          nextPlayer = currentOrder[nextIdx];
+          if (!newOrderList.includes(nextPlayer)) {
+            nextPlayer = newOrderList[0];
+          }
+        }
+
+        // handCounts에서 제거
+        const newHandCounts = { ...(currentGameState.handCounts || {}) };
+        delete newHandCounts[myPlayerId];
+
+        updates[`rooms/${myRoomCode}/gameState/playerOrder`] = newPlayerOrder;
+        updates[`rooms/${myRoomCode}/gameState/playerCount`] = newOrderList.length;
+        updates[`rooms/${myRoomCode}/gameState/currentPlayer`] = nextPlayer;
+        updates[`rooms/${myRoomCode}/gameState/handCounts`] = newHandCounts;
+        updates[`rooms/${myRoomCode}/gameState/lastAction`] = {
+          type: 'leave',
+          playerName: myName,
+          message: `🚪 ${myName}님이 게임을 나갔습니다.`,
+          timestamp: Date.now()
+        };
+      }
+    }
+
+    await update(ref(database), updates);
+    redirectToLobby();
+  } catch (err) {
+    console.error("퇴장 처리 중 오류 발생:", err);
+    redirectToLobby();
+  }
+}
+
+function redirectToLobby() {
+  sessionStorage.removeItem('uno_room_code');
+  window.location.href = 'index.html';
 }
 
 function escapeHtml(str) {

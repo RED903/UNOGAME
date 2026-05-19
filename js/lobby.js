@@ -13,6 +13,10 @@ let myPlayerId = null;
 let myRoomCode = null;
 let roomListener = null;
 
+// 프로필 아바타 리스트
+const AVATARS = ['🦊', '🐱', '🐶', '🐻', '🐼', '🦁', '🐯', '🦝', '🐺', '🦄', '🐸', '🐙'];
+let selectedAvatar = AVATARS[0]; // 기본값 Fox
+
 // DOM 요소
 const screens = {
   main: document.getElementById('screen-main'),
@@ -31,6 +35,9 @@ function initLobby() {
   // 세션에서 플레이어 ID 복원 (새로고침 시 재사용)
   myPlayerId = sessionStorage.getItem('uno_player_id') || generatePlayerId();
   sessionStorage.setItem('uno_player_id', myPlayerId);
+
+  // 아바타 선택기 초기화
+  initAvatarSelectors();
 
   // 이미 방에 있었으면 복원 시도
   const savedRoom = sessionStorage.getItem('uno_room_code');
@@ -101,6 +108,7 @@ async function handleCreateRoom() {
           name,
           ready: true,
           isHost: true,
+          avatar: selectedAvatar, // 프로필 아바타 추가
           joinedAt: serverTimestamp()
         }
       }
@@ -165,11 +173,12 @@ async function handleJoinRoom() {
       return;
     }
 
-    // 플레이어 추가
+    // 플레이어 추가 (아바타 포함)
     await update(ref(database, `rooms/${code}/players/${myPlayerId}`), {
       name,
       ready: true,
       isHost: false,
+      avatar: selectedAvatar,
       joinedAt: serverTimestamp()
     });
 
@@ -285,7 +294,7 @@ function updateWaitingRoom(room, roomCode) {
 
   listEl.innerHTML = playerEntries.map(([id, player]) => `
     <div class="player-item ${id === myPlayerId ? 'me' : ''} ${id === room.host ? 'host' : ''}">
-      <span class="player-avatar">${getAvatar(player.name)}</span>
+      <span class="player-avatar">${player.avatar || getAvatar(player.name)}</span>
       <span class="player-name">${escapeHtml(player.name)}</span>
       <span class="player-badges">
         ${id === room.host ? '<span class="badge badge-host">방장</span>' : ''}
@@ -413,4 +422,47 @@ function cleanupRoom() {
     // 리스너 제거
     roomListener = null;
   }
+}
+
+/** 아바타 선택기 UI 초기화 및 동기화 */
+function initAvatarSelectors() {
+  // 이전 세션에서 저장된 아바타 있으면 복원
+  const savedAvatar = sessionStorage.getItem('uno_player_avatar');
+  if (savedAvatar && AVATARS.includes(savedAvatar)) {
+    selectedAvatar = savedAvatar;
+  } else {
+    // 기본값 지정
+    sessionStorage.setItem('uno_player_avatar', selectedAvatar);
+  }
+
+  ['create', 'join'].forEach(mode => {
+    const grid = document.getElementById(`${mode}-avatar-grid`);
+    if (!grid) return;
+
+    grid.innerHTML = AVATARS.map(avatar => `
+      <button type="button" class="avatar-select-btn ${avatar === selectedAvatar ? 'selected' : ''}" data-avatar="${avatar}">
+        ${avatar}
+      </button>
+    `).join('');
+
+    grid.querySelectorAll('.avatar-select-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // 모든 아바타 버튼에서 selected 제거
+        grid.querySelectorAll('.avatar-select-btn').forEach(b => b.classList.remove('selected'));
+        // 이 버튼만 selected 추가
+        btn.classList.add('selected');
+        selectedAvatar = btn.dataset.avatar;
+        sessionStorage.setItem('uno_player_avatar', selectedAvatar);
+
+        // 반대편 모드 아바타 그리드도 연계 동기화 (방만들기 ↔ 방참가)
+        const otherMode = mode === 'create' ? 'join' : 'create';
+        const otherGrid = document.getElementById(`${otherMode}-avatar-grid`);
+        if (otherGrid) {
+          otherGrid.querySelectorAll('.avatar-select-btn').forEach(b => {
+            b.classList.toggle('selected', b.dataset.avatar === selectedAvatar);
+          });
+        }
+      });
+    });
+  });
 }

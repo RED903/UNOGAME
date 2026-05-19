@@ -138,7 +138,8 @@ async function checkIfHostAndInit() {
   if (!snapshot.exists()) return;
 
   const room = snapshot.val();
-  if (room.host === myPlayerId && !room.gameState) {
+  // 오직 방 상태가 'playing'일 때만 자동으로 게임 초기화 실행
+  if (room.status === 'playing' && room.host === myPlayerId && !room.gameState) {
     // 방장이 게임 초기화
     await initNewGame(room);
   }

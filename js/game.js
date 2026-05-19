@@ -28,10 +28,11 @@ let gameState = null;      // 전체 게임 상태 (Firebase에서)
 let myHand = [];           // 내 손패
 let selectedCardId = null; // 선택한 카드 ID (와일드용)
 let listeners = [];        // 정리용 리스너 목록
-let unoCallTimer = null;   // UNO 쿨타임 타이머
-let hasCalledUno = false;  // UNO 선언 여부
+let unoCallTimer = null;   // UNO 패널티 자동 카운트다운 타이머
+let hasCalledUno = false;  // UNO 선언 여부 (로컬)
 let isHost = false;        // 방장 여부
-let emoteCooldown = false; // 감정표현 쿨타임
+let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
+let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
 
 // ─── 초기화 ──────────────────────────────────────
 
@@ -211,8 +212,11 @@ function renderGameState() {
   // 패 다시 렌더 (유효성 재계산)
   renderMyHand();
 
-  // UNO 체크
+  // UNO 버튼 상태 업데이트
   checkUnoStatus();
+
+  // UNO 패널티 대상이 나면 처리
+  handleUnoPenaltyIfTarget();
 }
 
 function renderMyHand() {
@@ -597,23 +601,42 @@ async function handleDrawCard() {
   hasCalledUno = false;
 }
 
-// ─── UNO 선언 (쿨타임 3초) ──────────────────────
+// ─── UNO 시스템 (선언 + 잡기 통합) ────────────────
 
-async function handleUnoCall() {
+/**
+ * 통합 UNO 버튼 클릭 핸들러
+ * - 내가 1장이고 아직 선언 안 했으면 → UNO 선언
+ * - 상대가 1장이고 선언 안 했으면 → UNO 잡기 (패널티 부여)
+ */
+async function handleUnoBtn() {
   const unoBtn = document.getElementById('btn-uno');
-
-  // 쿨타임 체크
   if (unoBtn && unoBtn.disabled) return;
 
-  if (myHand.length > 2) {
-    showFloatMsg('패가 2장 이하일 때만 UNO를 외칠 수 있습니다!');
+  // 1) 내가 1장이고 아직 선언 안 한 상태 → 내 UNO 선언
+  const myHandCount = myHand.length;
+  if (myHandCount === 1 && gameState?.unoCalledBy !== myPlayerId) {
+    await doUnoCall();
     return;
   }
 
+  // 2) 잡을 수 있는 상대가 있으면 → UNO 잡기
+  const catchTarget = getCatchableTarget();
+  if (catchTarget) {
+    await doCatchUno(catchTarget);
+    return;
+  }
+
+  showFloatMsg('지금은 UNO를 외칠 수 없습니다!');
+}
+
+/** UNO 선언 실행 */
+async function doUnoCall() {
   hasCalledUno = true;
 
+  // Firebase에 UNO 선언 기록
   await update(ref(database, `rooms/${myRoomCode}/gameState`), {
     unoCalledBy: myPlayerId,
+    unoTimestamp: Date.now(),
     lastAction: {
       type: 'uno_call',
       playerName: myName,
@@ -625,58 +648,130 @@ async function handleUnoCall() {
   playUnoCall();
   showFloatMsg('UNO!! 🔔', 2000);
 
-  // 쿨타임 3초 시작
+  // 버튼 잠시 비활성화 (중복 방지)
+  const unoBtn = document.getElementById('btn-uno');
   if (unoBtn) {
     unoBtn.disabled = true;
-    let remaining = 3;
-    unoBtn.textContent = `UNO! (${remaining}s)`;
-    unoCallTimer = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) {
-        clearInterval(unoCallTimer);
-        unoBtn.disabled = false;
-        unoBtn.textContent = 'UNO!';
-      } else {
-        unoBtn.textContent = `UNO! (${remaining}s)`;
-      }
-    }, 1000);
+    setTimeout(() => { unoBtn.disabled = false; checkUnoStatus(); }, 1500);
   }
 }
 
-function checkUnoStatus() {
-  if (!gameState) return;
+/** UNO 잡기 실행 */
+async function doCatchUno(targetPlayerId) {
+  // 잡기 버튼 중복 방지
+  const unoBtn = document.getElementById('btn-uno');
+  if (unoBtn) unoBtn.disabled = true;
 
-  const unoBtn = document.getElementById('btn-catch-uno');
-  if (unoBtn) {
-    const handCounts = gameState.handCounts || {};
-    const unoCalledBy = gameState.unoCalledBy;
-    const hasCatchable = Object.entries(handCounts).some(
-      ([pid, count]) => count === 1 && pid !== myPlayerId && pid !== unoCalledBy
-    );
-    unoBtn.style.display = hasCatchable ? 'block' : 'none';
-  }
+  showFloatMsg('🚨 UNO 안 외쳤죠?! 패널티 +2장!', 2500);
+
+  await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+    unoPenaltyTarget: targetPlayerId,
+    unoCalledBy: null,
+    unoTimestamp: null,
+    lastAction: {
+      type: 'uno_penalty',
+      playerName: myName,
+      targetPlayerId,
+      timestamp: Date.now()
+    }
+  });
+
+  // 패널티 대상이 나 자신의 클라이언트에서 카드 뽑기 처리
+  // → Firebase 리스너가 unoPenaltyTarget을 보고 해당 플레이어가 직접 처리
+  if (unoBtn) setTimeout(() => { unoBtn.disabled = false; }, 1500);
 }
 
-async function handleCatchUno() {
-  const handCounts = gameState?.handCounts || {};
-  const unoCalledBy = gameState?.unoCalledBy;
+/**
+ * UNO 잡기 가능한 상대 플레이어 ID 반환
+ * 1장이고, 본인이 UNO 선언하지 않은 플레이어
+ */
+function getCatchableTarget() {
+  if (!gameState) return null;
+  const handCounts = gameState.handCounts || {};
+  const unoCalledBy = gameState.unoCalledBy;
 
   for (const [pid, count] of Object.entries(handCounts)) {
     if (count === 1 && pid !== myPlayerId && pid !== unoCalledBy) {
-      showFloatMsg(`UNO 패널티! +2장 🚨`);
-      await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-        drawCount: 2,
-        currentPlayer: pid,
-        unoCalledBy: null,
-        lastAction: {
-          type: 'uno_penalty',
-          playerName: '?',
-          timestamp: Date.now()
-        }
-      });
-      break;
+      return pid;
     }
   }
+  return null;
+}
+
+/**
+ * UNO 버튼 상태 업데이트
+ * 매 gameState/handCounts 업데이트마다 호출됨
+ */
+function checkUnoStatus() {
+  if (!gameState) return;
+  const unoBtn = document.getElementById('btn-uno');
+  if (!unoBtn) return;
+
+  const myCount = myHand.length;
+  const handCounts = gameState.handCounts || {};
+  const unoCalledBy = gameState.unoCalledBy;
+
+  // 내가 1장이고 아직 UNO 안 외친 상태
+  const canCall = myCount === 1 && unoCalledBy !== myPlayerId;
+  // 잡을 수 있는 상대가 있는지
+  const catchTarget = getCatchableTarget();
+
+  if (canCall) {
+    // 내 UNO 선언 모드
+    unoBtn.style.display = 'inline-flex';
+    unoBtn.textContent = '🔔 UNO!';
+    unoBtn.className = 'btn-uno-call'; // 노란색 계열
+    unoBtn.setAttribute('title', '지금 UNO를 외치세요! 안 외치면 패널티!');
+  } else if (catchTarget) {
+    // 잡기 모드
+    unoBtn.style.display = 'inline-flex';
+    unoBtn.textContent = '🚨 UNO 잡기!';
+    unoBtn.className = 'btn-uno-catch'; // 빨간색 계열
+    unoBtn.setAttribute('title', 'UNO를 외치지 않은 상대를 잡으세요!');
+  } else {
+    // 표시 안 함
+    unoBtn.style.display = 'none';
+    unoBtn.className = '';
+  }
+}
+
+/**
+ * UNO 패널티 처리 (Firebase에서 unoPenaltyTarget 감지 시)
+ * 패널티 대상 플레이어가 직접 카드를 뽑아 저장
+ */
+async function handleUnoPenaltyIfTarget() {
+  if (!gameState?.unoPenaltyTarget) return;
+  if (gameState.unoPenaltyTarget !== myPlayerId) return;
+
+  // 이미 처리됐으면 스킵
+  const deckData = gameState.deck;
+  let deck = Array.isArray(deckData) ? [...deckData] : Object.values(deckData || {});
+  const drawn = [];
+
+  // 2장 뽑기
+  for (let i = 0; i < 2; i++) {
+    if (deck.length === 0) {
+      const discardArr = Array.isArray(gameState.discardPile)
+        ? gameState.discardPile : Object.values(gameState.discardPile);
+      deck = shuffleDeck([...discardArr.slice(0, -1)]);
+    }
+    if (deck.length > 0) drawn.push(deck.shift());
+  }
+
+  const newHand = [...myHand, ...drawn];
+  const handCounts = { ...(gameState.handCounts || {}) };
+  handCounts[myPlayerId] = newHand.length;
+
+  // unoPenaltyTarget 클리어 + 손패 업데이트
+  await update(ref(database), {
+    [`rooms/${myRoomCode}/hands/${myPlayerId}`]: newHand,
+    [`rooms/${myRoomCode}/gameState/deck`]: deck,
+    [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+    [`rooms/${myRoomCode}/gameState/unoPenaltyTarget`]: null
+  });
+
+  showFloatMsg('패널티! 카드 2장을 받았습니다 😱', 2000);
+  playDrawPenalty();
 }
 
 // ─── 색상 선택기 ─────────────────────────────────
@@ -918,11 +1013,8 @@ function bindGameEvents() {
   document.getElementById('draw-pile')?.addEventListener('click', handleDrawCard);
   document.getElementById('btn-draw')?.addEventListener('click', handleDrawCard);
 
-  // UNO 선언
-  document.getElementById('btn-uno')?.addEventListener('click', handleUnoCall);
-
-  // UNO 잡기
-  document.getElementById('btn-catch-uno')?.addEventListener('click', handleCatchUno);
+  // UNO 선언 / 잡기 통합 버튼
+  document.getElementById('btn-uno')?.addEventListener('click', handleUnoBtn);
 
   // 게임 다시 시작 (방장만)
   document.getElementById('btn-restart-game')?.addEventListener('click', handleRestartGame);

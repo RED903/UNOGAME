@@ -418,58 +418,64 @@
   animation: cardShake 0.4s ease-in-out;
 }
 
-/* ─── 게임 액션 버튼 ─────────────────────────── */
+
+/* ─── 게임 액션 버튼 레이아웃 ─────────────────── */
 .game-actions {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
+/* ─── UNO 통합 버튼 (선언 / 잡기 동적 전환) ───── */
 #btn-uno {
-  background: linear-gradient(135deg, #FF6B00, #FF1744);
-  color: white;
-  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 1.0rem;
   font-weight: 900;
-  padding: 9px 22px;
+  padding: 10px 22px;
   border: none;
   border-radius: 50px;
   cursor: pointer;
-  letter-spacing: 2px;
-  transition: all var(--transition-normal);
-  box-shadow: 0 4px 20px rgba(255,50,0,0.5);
-  animation: unoPulse 2s ease-in-out infinite;
+  letter-spacing: 1px;
+  transition: all 0.2s;
   font-family: inherit;
+}
+
+/* UNO 선언 모드 (노란색 - 긴박한 느낌) */
+#btn-uno.btn-uno-call {
+  background: linear-gradient(135deg, #FFD900, #FF8C00);
+  color: #1A0000;
+  box-shadow: 0 4px 20px rgba(255,210,0,0.6);
+  animation: unoPulse 1s ease-in-out infinite;
+}
+
+/* UNO 잡기 모드 (빨간색 - 공격적인 느낌) */
+#btn-uno.btn-uno-catch {
+  background: linear-gradient(135deg, #FF1744, #B71C1C);
+  color: white;
+  box-shadow: 0 4px 20px rgba(255,23,68,0.6);
+  animation: catchPulse 0.7s ease-in-out infinite alternate;
+}
+
+#btn-uno:hover { transform: scale(1.1); filter: brightness(1.1); }
+#btn-uno:active { transform: scale(0.95); }
+#btn-uno:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: none;
+  transform: none;
 }
 
 @keyframes unoPulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(255,50,0,0.5); }
-  50% { box-shadow: 0 4px 30px rgba(255,50,0,0.9); transform: scale(1.03); }
+  0%, 100% { box-shadow: 0 4px 20px rgba(255,210,0,0.5); }
+  50% { box-shadow: 0 4px 30px rgba(255,210,0,0.95); transform: scale(1.05); }
 }
 
-#btn-uno:hover { transform: scale(1.1); }
-#btn-uno:active { transform: scale(0.95); }
-#btn-uno:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  animation: none;
-}
-
-#btn-catch-uno {
-  display: none;
-  background: linear-gradient(135deg, #FFD900, #FF8C00);
-  color: #1A0000;
-  font-weight: 900;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-  animation: catchPulse 0.6s ease-in-out infinite alternate;
-}
 @keyframes catchPulse {
-  from { transform: scale(1); }
-  to { transform: scale(1.05); }
+  from { transform: scale(1); box-shadow: 0 4px 20px rgba(255,23,68,0.5); }
+  to   { transform: scale(1.06); box-shadow: 0 4px 30px rgba(255,23,68,0.95); }
 }
 
 /* ─── 감정표현 패널 ──────────────────────────── */

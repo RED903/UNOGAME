@@ -1016,7 +1016,22 @@ function initEmotePanel() {
   // 외부 클릭 시 닫는 로직 제거 (수동으로 다시 토글 버튼을 눌러야 닫히게 설정)
 }
 
+// 감정표현 쿨타임 추적 변수
+let isEmoteCooldown = false;
+
 async function sendEmote(emote) {
+  if (isEmoteCooldown) return; // 쿨타임 중이면 전송 무시
+  isEmoteCooldown = true;
+
+  const toggleBtn = document.getElementById('btn-emote-toggle');
+  const originalHtml = toggleBtn ? toggleBtn.innerHTML : '😊';
+
+  if (toggleBtn) {
+    toggleBtn.classList.add('cooldown');
+    toggleBtn.disabled = true;
+    toggleBtn.innerHTML = '⏳';
+  }
+
   // Firebase에 저장
   try {
     await update(ref(database, `rooms/${myRoomCode}/emotes/${myPlayerId}`), {
@@ -1030,6 +1045,16 @@ async function sendEmote(emote) {
 
   // 내 화면에서도 플레이어 사이드바 내 이름 오른쪽에 이모지가 팝업되도록 설정
   showEmotePopup(myPlayerId, emote, Date.now());
+
+  // 1초(1000ms) 쿨타임 후 상태 원상 복구
+  setTimeout(() => {
+    isEmoteCooldown = false;
+    if (toggleBtn) {
+      toggleBtn.classList.remove('cooldown');
+      toggleBtn.disabled = false;
+      toggleBtn.innerHTML = originalHtml;
+    }
+  }, 1000);
 }
 
 // 이미 표시된 감정표현 타임스탬프 추적 (중복 방지)

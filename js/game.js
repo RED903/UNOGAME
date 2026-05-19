@@ -33,6 +33,7 @@ let hasCalledUno = false;  // UNO 선언 여부 (로컬)
 let isHost = false;        // 방장 여부
 let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
 let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
+let isHandlingPenalty = false; // 패널티 중복 처리 방지 락 플래그
 
 // ─── 초기화 ──────────────────────────────────────
 
@@ -270,6 +271,9 @@ function renderMyHand() {
   // 패 개수 표시
   const countEl = document.getElementById('my-hand-count');
   if (countEl) countEl.textContent = myHand.length;
+
+  // 손패 갱신 시 UNO 버튼 상태 즉시 업데이트
+  checkUnoStatus();
 }
 
 function renderDiscardPile() {
@@ -436,16 +440,8 @@ function handleCardPlay(card) {
   const isWild = card.type === CARD_TYPES.WILD || card.type === CARD_TYPES.WILD_DRAW_FOUR;
 
   if (isWild) {
-    // 와일드 카드는 2번 클릭 방식: 첫 클릭에 선택, 두 번째에 색상 모달
-    if (selectedCardId === card.id) {
-      // 이미 선택됨 → 색상 선택 모달 열기
-      showColorPicker(card);
-    } else {
-      // 첫 클릭 → 선택만
-      selectedCardId = card.id;
-      renderMyHand();
-      showFloatMsg('한 번 더 클릭하면 색상을 선택합니다 🎨');
-    }
+    // 와일드 카드는 1번 클릭에 바로 색상 선택 모달 열기
+    showColorPicker(card);
     return;
   }
 
@@ -740,38 +736,46 @@ function checkUnoStatus() {
  * 패널티 대상 플레이어가 직접 카드를 뽑아 저장
  */
 async function handleUnoPenaltyIfTarget() {
+  if (isHandlingPenalty) return;
   if (!gameState?.unoPenaltyTarget) return;
   if (gameState.unoPenaltyTarget !== myPlayerId) return;
 
-  // 이미 처리됐으면 스킵
-  const deckData = gameState.deck;
-  let deck = Array.isArray(deckData) ? [...deckData] : Object.values(deckData || {});
-  const drawn = [];
+  isHandlingPenalty = true;
+  try {
+    // 이미 처리됐으면 스킵
+    const deckData = gameState.deck;
+    let deck = Array.isArray(deckData) ? [...deckData] : Object.values(deckData || {});
+    const drawn = [];
 
-  // 2장 뽑기
-  for (let i = 0; i < 2; i++) {
-    if (deck.length === 0) {
-      const discardArr = Array.isArray(gameState.discardPile)
-        ? gameState.discardPile : Object.values(gameState.discardPile);
-      deck = shuffleDeck([...discardArr.slice(0, -1)]);
+    // 2장 뽑기
+    for (let i = 0; i < 2; i++) {
+      if (deck.length === 0) {
+        const discardArr = Array.isArray(gameState.discardPile)
+          ? gameState.discardPile : Object.values(gameState.discardPile);
+        deck = shuffleDeck([...discardArr.slice(0, -1)]);
+      }
+      if (deck.length > 0) drawn.push(deck.shift());
     }
-    if (deck.length > 0) drawn.push(deck.shift());
+
+    const newHand = [...myHand, ...drawn];
+    const handCounts = { ...(gameState.handCounts || {}) };
+    handCounts[myPlayerId] = newHand.length;
+
+    // unoPenaltyTarget 클리어 + 손패 업데이트
+    await update(ref(database), {
+      [`rooms/${myRoomCode}/hands/${myPlayerId}`]: newHand,
+      [`rooms/${myRoomCode}/gameState/deck`]: deck,
+      [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+      [`rooms/${myRoomCode}/gameState/unoPenaltyTarget`]: null
+    });
+
+    showFloatMsg('패널티! 카드 2장을 받았습니다 😱', 2000);
+    playDrawPenalty();
+  } catch (error) {
+    console.error("UNO 패널티 처리 중 오류 발생:", error);
+  } finally {
+    isHandlingPenalty = false;
   }
-
-  const newHand = [...myHand, ...drawn];
-  const handCounts = { ...(gameState.handCounts || {}) };
-  handCounts[myPlayerId] = newHand.length;
-
-  // unoPenaltyTarget 클리어 + 손패 업데이트
-  await update(ref(database), {
-    [`rooms/${myRoomCode}/hands/${myPlayerId}`]: newHand,
-    [`rooms/${myRoomCode}/gameState/deck`]: deck,
-    [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
-    [`rooms/${myRoomCode}/gameState/unoPenaltyTarget`]: null
-  });
-
-  showFloatMsg('패널티! 카드 2장을 받았습니다 😱', 2000);
-  playDrawPenalty();
 }
 
 // ─── 색상 선택기 ─────────────────────────────────

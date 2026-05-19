@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UNO - 게임 중</title>
+  <meta name="description" content="UNO 실시간 게임 화면"/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <link rel="stylesheet" href="css/game.css"/>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════
+       게임 레이아웃
+       ════════════════════════════════════════════════ -->
+  <div class="game-root">
+
+    <!-- ── 헤더 ── -->
+    <header class="game-header">
+      <div class="game-header-logo">UNO</div>
+      <div class="game-header-room">
+        방 코드: <strong id="header-room-code" style="color:#FFD900; letter-spacing:0.15em;"></strong>
+      </div>
+      <div class="game-header-actions">
+        <button class="btn btn-ghost" id="btn-leave-game"
+          style="padding:6px 14px; font-size:0.8rem; border-radius:8px;">
+          나가기
+        </button>
+      </div>
+    </header>
+
+    <!-- ── 왼쪽: 플레이어 목록 ── -->
+    <aside class="players-sidebar" id="players-sidebar" aria-label="플레이어 목록">
+      <!-- JS로 동적 생성 -->
+      <div style="color:rgba(240,240,255,0.3); font-size:0.8rem; text-align:center; padding-top:20px;">
+        로딩 중...
+      </div>
+    </aside>
+
+    <!-- ── 중앙: 게임 테이블 ── -->
+    <main class="game-table" aria-label="게임 테이블">
+
+      <!-- 내 턴 인디케이터 -->
+      <div id="my-turn-indicator" role="status" aria-live="polite">
+        ⭐ 내 차례입니다! 카드를 선택하세요
+      </div>
+
+      <!-- 카드 더미 영역 -->
+      <div class="card-piles">
+
+        <!-- 드로우 더미 (뽑기) -->
+        <div class="pile-container">
+          <div class="pile-label">뽑기</div>
+          <div id="draw-pile" role="button" tabindex="0"
+            aria-label="카드 뽑기" title="카드 뽑기 (내 차례에만 클릭 가능)">
+            <!-- JS로 렌더 -->
+          </div>
+          <span id="deck-count" aria-label="남은 카드 수">0</span>
+          <!-- DrawCount 경고 배지 -->
+          <div id="draw-count-badge" aria-live="assertive"></div>
+        </div>
+
+        <!-- 현재 색상 + 방향 표시 -->
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <!-- 방향 표시 (상하) -->
+          <div id="direction-indicator" title="진행 방향" style="font-size:1.8rem; line-height:1; transition: all 0.3s;">↓</div>
+
+          <!-- 현재 색상 -->
+          <div style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:rgba(240,240,255,0.4);">
+            현재 색상
+          </div>
+          <div id="current-color" title="현재 낼 수 있는 색상"
+            style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);">
+          </div>
+        </div>
+
+        <!-- 버린 카드 더미 -->
+        <div class="pile-container">
+          <div class="pile-label">버린 카드</div>
+          <div id="discard-pile" aria-label="버린 카드 더미">
+            <!-- JS로 렌더 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 액션 로그 -->
+      <div id="action-log" role="log" aria-live="polite" aria-label="게임 로그">
+        게임을 기다리는 중...
+      </div>
+
+    </main>
+
+    <!-- ── 오른쪽: 게임 정보 ── -->
+    <aside class="game-info-sidebar" aria-label="게임 정보">
+
+      <div class="info-panel">
+        <div class="info-panel-label">🃏 남은 덱</div>
+        <div class="info-panel-value" id="sidebar-deck-count">-</div>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-panel-label">📋 마지막 행동</div>
+        <div id="action-log-sidebar" style="font-size:0.8rem; color:rgba(240,240,255,0.5); line-height:1.6;">
+          -
+        </div>
+      </div>
+
+      <!-- UNO 잡기 버튼 (상대가 UNO 선언 안 했을 때) -->
+      <button id="btn-catch-uno" aria-label="UNO 패널티 주기"
+        title="UNO를 외치지 않은 상대에게 패널티!">
+        🚨 UNO 잡기!
+      </button>
+
+    </aside>
+
+    <!-- ── 하단: 내 손패 ── -->
+    <section class="my-hand-area" aria-label="내 손패">
+
+      <div class="hand-area-top">
+        <div class="hand-info">
+          내 패: <strong id="my-hand-count">0</strong>장
+        </div>
+
+        <!-- 게임 액션 버튼 -->
+        <div class="game-actions">
+          <button class="btn btn-ghost" id="btn-draw"
+            style="padding:8px 16px; font-size:0.85rem; border-radius:50px;"
+            aria-label="카드 뽑기" title="카드 뽑기">
+            🃏 뽑기
+          </button>
+
+          <button id="btn-uno" aria-label="UNO 선언" title="패가 2장 이하일 때 UNO를 외쳐야 합니다!">
+            UNO!
+          </button>
+        </div>
+
+        <!-- 감정표현 버튼 -->
+        <div class="emote-panel">
+          <button class="emote-toggle-btn" id="btn-emote-toggle" title="감정표현">
+            😊
+          </button>
+          <div class="emote-list" id="emote-list">
+            <!-- JS로 생성 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 손패 카드 목록 -->
+      <div id="my-hand" role="list" aria-label="내 손패 카드">
+        <!-- JS로 동적 생성 -->
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- ════════════════════════════════════════
+       색상 선택 모달 (와일드 카드 사용 시)
+       ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="color-picker-modal" role="dialog" aria-modal="true" aria-label="색상 선택">
+    <div class="modal-content">
+      <h2 class="modal-title">🎨 색상을 선택하세요</h2>
+      <p class="modal-msg">와일드 카드를 냈습니다. 다음에 낼 색상을 고르세요.</p>
+
+      <div id="color-picker-buttons" style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+        <!-- JS로 생성 -->
+      </div>
+
+      <button class="btn btn-ghost" id="btn-cancel-color"
+        style="margin-top:20px; padding:10px 24px; font-size:0.9rem;">
+        취소
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       게임 종료 모달
+       ════════════════════════════════════════ -->
+  <div class="modal-overlay" id="game-over-modal" role="dialog" aria-modal="true" aria-label="게임 종료">
+    <div class="modal-content">
+      <div id="game-over-emoji" style="font-size:4rem; margin-bottom:8px;">🏆</div>
+      <h2 class="modal-title" id="game-over-title">게임 종료</h2>
+      <p class="modal-msg" id="game-over-msg">...</p>
+
+      <!-- 최종 점수 -->
+      <div id="game-over-score"
+        style="background:rgba(255,255,255,0.05); border-radius:12px; padding:16px; margin-bottom:20px; display:none;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:rgba(240,240,255,0.4); margin-bottom:8px;">
+          획득 점수
+        </div>
+        <div id="score-value" style="font-size:2.5rem; font-weight:900; color:#FFD900;"></div>
+      </div>
+
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <!-- 방장만 보이는 다시 시작 버튼 -->
+        <button class="btn btn-success" id="btn-restart-game" style="display:none;">
+          🔄 다시 시작
+        </button>
+        <button class="btn btn-primary" id="btn-back-lobby">
+          🏠 로비로 돌아가기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 플로팅 메시지 -->
+  <div id="float-msg" aria-live="assertive"></div>
+  <div id="toast"></div>
+
+  <!-- 감정표현 팝업 컨테이너 -->
+  <div id="emote-popup-container"></div>
+
+  <script>
+    // 헤더에 방 코드 표시
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+    if (roomCode) {
+      document.getElementById('header-room-code').textContent = roomCode;
+    }
+
+    // 키보드로 드로우 더미 클릭 지원
+    document.getElementById('draw-pile')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        document.getElementById('draw-pile').click();
+      }
+    });
+  </script>
+
+  <!-- Firebase + 게임 로직 (ES Module) -->
+  <script type="module" src="js/game.js"></script>
+
+</body>
+</html>

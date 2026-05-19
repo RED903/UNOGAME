@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UNO 온라인 멀티플레이어</title>
+  <meta name="description" content="친구들과 함께 즐기는 실시간 UNO 카드 게임. 방을 만들거나 코드로 입장하세요!"/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <style>
+    /* ─── 로비 전용 스타일 ─── */
+    .lobby-root {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* 화면 전환 */
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      max-width: 440px;
+      animation: screenIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes screenIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* 메인 화면 */
+    #screen-main { gap: 28px; }
+
+    .main-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+
+    .main-subtitle {
+      font-size: 1rem;
+      color: rgba(240,240,255,0.6);
+      font-weight: 400;
+      max-width: 280px;
+      line-height: 1.6;
+    }
+
+    .main-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+    }
+
+    .main-buttons .btn {
+      width: 100%;
+      font-size: 1.1rem;
+      padding: 18px;
+    }
+
+    /* 글래스 폼 */
+    .lobby-form {
+      width: 100%;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-title {
+      font-size: 1.4rem;
+      font-weight: 900;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(240,240,255,0.6);
+    }
+
+    .select-input {
+      width: 100%;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      color: #F0F0FF;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .select-input:focus {
+      border-color: rgba(232,0,61,0.6);
+      box-shadow: 0 0 0 3px rgba(232,0,61,0.15);
+    }
+    .select-input option { background: #1A1A35; color: #F0F0FF; }
+
+    /* 방 코드 입력 */
+    #input-room-code {
+      text-align: center;
+      font-size: 1.5rem;
+      letter-spacing: 0.4em;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    /* 대기실 */
+    #screen-waiting {
+      max-width: 520px;
+      gap: 16px;
+    }
+
+    .waiting-header {
+      text-align: center;
+      width: 100%;
+    }
+
+    .waiting-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 6px; }
+    .waiting-subtitle { color: rgba(240,240,255,0.5); font-size: 0.9rem; }
+
+    /* 방 코드 표시 */
+    .room-code-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 20px;
+      width: 100%;
+    }
+
+    .room-code-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(240,240,255,0.5);
+    }
+
+    .room-code-value {
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      color: #FFD900;
+      text-shadow: 0 0 30px rgba(255,217,0,0.5);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .room-code-value:hover { transform: scale(1.05); }
+
+    .room-code-copy {
+      font-size: 0.75rem;
+      color: rgba(240,240,255,0.4);
+    }
+
+    /* 플레이어 목록 */
+    .player-list-wrapper {
+      width: 100%;
+      padding: 0 4px;
+    }
+
+    .player-list-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(240,240,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    #player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 80px;
+    }
+
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      transition: all 0.3s;
+      animation: playerJoin 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes playerJoin {
+      from { opacity: 0; transform: translateX(-20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .player-item.host { border-color: rgba(255,215,0,0.25); background: rgba(255,215,0,0.06); }
+    .player-item.me   { border-color: rgba(100,160,255,0.25); }
+
+    .player-avatar { font-size: 1.6rem; }
+    .player-name   { font-weight: 700; font-size: 0.95rem; flex: 1; }
+    .player-badges { display: flex; gap: 4px; }
+
+    /* 카운트 + 시작 버튼 */
+    .waiting-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    #player-count {
+      font-size: 0.85rem;
+      color: rgba(240,240,255,0.5);
+    }
+
+    #btn-start {
+      width: 100%;
+      font-size: 1.1rem;
+      padding: 16px;
+    }
+
+    /* 카드 장식 애니메이션 */
+    .deco-cards {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .deco-card {
+      position: absolute;
+      opacity: 0.07;
+      animation: floatCard linear infinite;
+    }
+
+    @keyframes floatCard {
+      from {
+        transform: translateY(110vh) rotate(var(--rot-start));
+        opacity: 0;
+      }
+      10% { opacity: 0.07; }
+      90% { opacity: 0.07; }
+      to {
+        transform: translateY(-20vh) rotate(var(--rot-end));
+        opacity: 0;
+      }
+    }
+
+    /* 배경보다 위에 콘텐츠 표시 */
+    .screen { position: relative; z-index: 1; }
+
+    /* 뒤로가기 */
+    .btn-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: rgba(240,240,255,0.5);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 8px 0;
+      transition: color 0.2s;
+      align-self: flex-start;
+    }
+    .btn-back:hover { color: rgba(240,240,255,0.9); }
+
+    /* 푸터 */
+    .lobby-footer {
+      position: fixed;
+      bottom: 16px;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.2);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 배경 장식 카드들 -->
+  <div class="deco-cards" aria-hidden="true" id="deco-cards"></div>
+
+  <div class="lobby-root">
+
+    <!-- ══════════ 메인 화면 ══════════ -->
+    <div class="screen" id="screen-main" style="display:flex;">
+      <div class="main-hero">
+        <h1 class="uno-logo">UNO</h1>
+        <p class="main-subtitle">친구들과 즐기는 실시간 온라인 카드 게임</p>
+      </div>
+
+      <div class="main-buttons glass-card" style="padding:28px; border-radius:24px;">
+        <button class="btn btn-primary" id="btn-create">
+          🏠 방 만들기
+        </button>
+        <button class="btn btn-secondary" id="btn-join">
+          🚪 방 입장하기
+        </button>
+      </div>
+
+      <div style="display:flex; gap:24px; font-size:0.8rem; color:rgba(240,240,255,0.35); text-align:center;">
+        <div>🃏 108장<br/>표준 덱</div>
+        <div>👥 2~4명<br/>멀티플레이</div>
+        <div>⚡ 실시간<br/>동기화</div>
+      </div>
+    </div>
+
+    <!-- ══════════ 방 만들기 화면 ══════════ -->
+    <div class="screen" id="screen-create">
+      <button class="btn-back" id="btn-back-create">← 뒤로</button>
+
+      <div class="glass-card lobby-form" style="border-radius:24px;">
+        <h2 class="form-title">🏠 방 만들기</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="input-create-name">닉네임</label>
+          <input
+            class="input"
+            id="input-create-name"
+            type="text"
+            placeholder="12자 이하 닉네임"
+            maxlength="12"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="select-max-players">최대 인원</label>
+          <select class="select-input" id="select-max-players">
+            <option value="2">2명</option>
+            <option value="3">3명</option>
+            <option value="4" selected>4명</option>
+          </select>
+        </div>
+
+        <div class="error-msg" id="error-create"></div>
+
+        <button class="btn btn-primary" id="btn-do-create" style="margin-top:4px;">
+          방 만들기
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════ 방 입장 화면 ══════════ -->
+    <div class="screen" id="screen-join">
+      <button class="btn-back" id="btn-back-join">← 뒤로</button>
+
+      <div class="glass-card lobby-form" style="border-radius:24px;">
+        <h2 class="form-title">🚪 방 입장</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="input-join-name">닉네임</label>
+          <input
+            class="input"
+            id="input-join-name"
+            type="text"
+            placeholder="12자 이하 닉네임"
+            maxlength="12"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-room-code">방 코드 (6자리)</label>
+          <input
+            class="input"
+            id="input-room-code"
+            type="text"
+            placeholder="ABC123"
+            maxlength="6"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="error-msg" id="error-join"></div>
+
+        <button class="btn btn-secondary" id="btn-do-join" style="margin-top:4px;">
+          입장하기
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════ 대기실 화면 ══════════ -->
+    <div class="screen" id="screen-waiting">
+
+      <div class="glass-card room-code-display" style="border-radius:20px; width:100%;">
+        <div class="room-code-label">방 코드 (친구에게 공유하세요)</div>
+        <div class="room-code-value" id="display-room-code" title="클릭하여 복사" onclick="copyRoomCode()">
+          ------
+        </div>
+        <div class="room-code-copy">클릭하면 복사됩니다</div>
+      </div>
+
+      <div class="glass-card player-list-wrapper" style="padding:16px 20px; border-radius:16px; width:100%;">
+        <div class="player-list-title">
+          참가자 <span id="player-count">0 / 4명</span>
+        </div>
+        <div id="player-list">
+          <div style="color:rgba(240,240,255,0.3); font-size:0.85rem; text-align:center; padding:20px 0;">
+            다른 플레이어를 기다리는 중...
+          </div>
+        </div>
+      </div>
+
+      <div class="waiting-footer" style="width:100%;">
+        <button class="btn btn-success" id="btn-start" style="display:none; width:100%; font-size:1.05rem; padding:16px;">
+          🎮 게임 시작!
+        </button>
+        <div style="color:rgba(240,240,255,0.4); font-size:0.8rem; text-align:center;" id="waiting-hint">
+          방장이 게임을 시작할 때까지 기다려주세요
+        </div>
+        <button class="btn btn-ghost" id="btn-leave" style="font-size:0.85rem; padding:10px 20px;">
+          나가기
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- 푸터 -->
+  <div class="lobby-footer">
+    UNO Online • Firebase 실시간 멀티플레이 • GitHub Pages
+  </div>
+
+  <!-- 토스트 알림 -->
+  <div id="toast"></div>
+
+  <script>
+    // 방 코드 복사
+    function copyRoomCode() {
+      const code = document.getElementById('display-room-code').textContent.trim();
+      if (code === '------') return;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast('방 코드가 복사되었습니다: ' + code);
+      });
+    }
+
+    // 토스트 (lobby.js에도 있지만 인라인으로도)
+    function showToast(message) {
+      let toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // 배경 장식 카드 생성
+    function createDecoCards() {
+      const container = document.getElementById('deco-cards');
+      const symbols = ['0','1','2','3','4','5','6','7','8','9','⊘','⇄','+2','W','+4'];
+      const colors = ['#E8003D','#0065BD','#1B9E3E','#FFD900'];
+
+      for (let i = 0; i < 12; i++) {
+        const card = document.createElement('div');
+        card.className = 'deco-card';
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+        const rotStart = (Math.random() - 0.5) * 40;
+        const rotEnd = rotStart + (Math.random() - 0.5) * 60;
+        const duration = 8 + Math.random() * 12;
+        const delay = -Math.random() * 20;
+        const left = Math.random() * 100;
+
+        card.style.cssText = `
+          left: ${left}%;
+          width: 60px;
+          height: 86px;
+          background: linear-gradient(135deg, ${color}DD, ${color}88);
+          border-radius: 8px;
+          border: 1.5px solid rgba(255,255,255,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          font-weight: 900;
+          color: white;
+          --rot-start: ${rotStart}deg;
+          --rot-end: ${rotEnd}deg;
+          animation-duration: ${duration}s;
+          animation-delay: ${delay}s;
+        `;
+        card.textContent = symbol;
+        container.appendChild(card);
+      }
+    }
+    createDecoCards();
+  </script>
+
+  <!-- Firebase + 로비 로직 (ES Module) -->
+  <script type="module" src="js/lobby.js"></script>
+</body>
+</html>

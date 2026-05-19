@@ -98,7 +98,8 @@ function listenToGame() {
     isHost = room.host === myPlayerId;
 
     if (room.status === 'waiting') {
-      // 대기실 상태로 전환되면 lobby (index.html)로 복귀 (세션 유지)
+      // 대기실 상태로 전환: 리스너 먼저 전부 해제 후 이동 (재초기화 타이밍 버그 방지)
+      cleanupListeners();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.location.href = 'index.html';
       return;
@@ -131,6 +132,14 @@ function listenToGame() {
   listeners.push({ ref: handRef, unsub: unsubHand });
   listeners.push({ ref: roomRef, unsub: unsubRoom });
   listeners.push({ ref: emoteRef, unsub: unsubEmote });
+}
+
+/** 모든 Firebase 실시간 리스너를 즉시 해제 (중복 실행 방지) */
+function cleanupListeners() {
+  listeners.forEach(({ unsub }) => {
+    try { unsub(); } catch (e) { /* 무시 */ }
+  });
+  listeners.length = 0; // 배열 비우기
 }
 
 async function checkIfHostAndInit() {
@@ -1087,6 +1096,8 @@ function bindGameEvents() {
 
   // 게임 종료 후 대기실 복귀
   document.getElementById('btn-back-lobby')?.addEventListener('click', async () => {
+    // 리스너 먼저 전부 해제 (이후 Firebase 변경이 루프를 일으키지 않도록)
+    cleanupListeners();
     window.removeEventListener('beforeunload', handleBeforeUnload);
     if (isHost) {
       try {
@@ -1167,8 +1178,7 @@ async function leaveGameRoom() {
 
     // 2) 게임 진행 중이었던 경우
     if (room.status === 'playing' && room.gameState) {
-      // [★ 핵심 요구사항] 플레이어가 정확히 2명이었는데 한 명이 나가는 경우:
-      // 게임 취소 처리 및 두 명 다 세션을 보존한 상태로 대기방으로 함께 이동!
+      // [★ 2인 이탈] 세션 유지한 채로 대기방으로 함께 이동
       if (playerIds.length === 2) {
         updates[`rooms/${myRoomCode}/status`] = 'waiting';
         updates[`rooms/${myRoomCode}/gameState`] = null;
@@ -1176,10 +1186,12 @@ async function leaveGameRoom() {
         updates[`rooms/${myRoomCode}/winnerPlayerId`] = null;
         updates[`rooms/${myRoomCode}/emotes`] = null;
 
+        // 리스너 전부 해제 후 업데이트 (재초기화 방지)
+        cleanupListeners();
         window.removeEventListener('beforeunload', handleBeforeUnload);
         await update(ref(database), updates);
 
-        // 나간 플레이어도 세션 유지한 상태로 index.html로 복귀 (대기방 자동 진입)
+        // 세션(방코드) 유지하여 index.html에서 대기실로 자동 복원
         window.location.href = 'index.html';
         return;
       }
@@ -1252,8 +1264,11 @@ async function leaveGameRoom() {
   }
 }
 
-function redirectToLobby() {
-  sessionStorage.removeItem('uno_room_code');
+function redirectToLobby(keepSession = false) {
+  if (!keepSession) {
+    // 완전히 방을 나갈 때는 세션 정리
+    sessionStorage.removeItem('uno_room_code');
+  }
   window.location.href = 'index.html';
 }
 

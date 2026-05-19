@@ -499,24 +499,22 @@
 .emote-list {
   display: none;
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(15,15,35,0.97);
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: 20px;
-  padding: 10px 12px;
-  gap: 6px;
-  flex-wrap: wrap;
-  max-width: 280px;
+  padding: 12px;
+  gap: 8px;
   z-index: 100;
   box-shadow: 0 8px 40px rgba(0,0,0,0.7);
   backdrop-filter: blur(12px);
-  justify-content: center;
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .emote-list.open {
-  display: flex;
+  display: grid;
   animation: emoteListPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -526,19 +524,23 @@
 }
 
 .emote-btn {
-  background: none;
-  border: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
   font-size: 1.6rem;
   cursor: pointer;
-  padding: 5px 7px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
   transition: all 0.15s;
-  line-height: 1;
 }
 
 .emote-btn:hover {
-  background: rgba(255,255,255,0.12);
-  transform: scale(1.25);
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(255,255,255,0.15);
 }
 
 .emote-btn:active {

@@ -842,10 +842,6 @@ function initEmotePanel() {
   // 토글 버튼
   toggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (emoteCooldown) {
-      showFloatMsg('감정표현 쿨타임 중...');
-      return;
-    }
     listEl.classList.toggle('open');
   });
 
@@ -856,15 +852,6 @@ function initEmotePanel() {
 }
 
 async function sendEmote(emote) {
-  if (emoteCooldown) return;
-
-  emoteCooldown = true;
-  const toggleBtn = document.getElementById('btn-emote-toggle');
-  if (toggleBtn) {
-    toggleBtn.textContent = '⏳';
-    toggleBtn.classList.add('cooldown');
-  }
-
   // Firebase에 저장
   try {
     await update(ref(database, `rooms/${myRoomCode}/emotes/${myPlayerId}`), {
@@ -878,15 +865,6 @@ async function sendEmote(emote) {
 
   // 내 화면에서도 보이게 (자기 자신 팝업)
   showEmotePopupSelf(emote);
-
-  // 2초 쿨타임
-  setTimeout(() => {
-    emoteCooldown = false;
-    if (toggleBtn) {
-      toggleBtn.textContent = '😊';
-      toggleBtn.classList.remove('cooldown');
-    }
-  }, 2000);
 }
 
 // 이미 표시된 감정표현 타임스탬프 추적 (중복 방지)

@@ -27,11 +27,11 @@ const screens = {
 
 // ─── 초기화 ─────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
-  initLobby();
+document.addEventListener('DOMContentLoaded', async () => {
+  await initLobby();
 });
 
-function initLobby() {
+async function initLobby() {
   // 세션에서 플레이어 ID 복원 (새로고침 시 재사용)
   myPlayerId = sessionStorage.getItem('uno_player_id') || generatePlayerId();
   sessionStorage.setItem('uno_player_id', myPlayerId);
@@ -39,14 +39,19 @@ function initLobby() {
   // 아바타 선택기 초기화
   initAvatarSelectors();
 
+  bindEvents();
+
   // 이미 방에 있었으면 복원 시도
   const savedRoom = sessionStorage.getItem('uno_room_code');
+  let rejoined = false;
   if (savedRoom) {
-    rejoinRoom(savedRoom);
+    rejoined = await rejoinRoom(savedRoom);
   }
 
-  bindEvents();
-  showScreen('main');
+  // 복원에 성공하지 못한 경우에만 메인 스크린 노출
+  if (!rejoined) {
+    showScreen('main');
+  }
 }
 
 function bindEvents() {
@@ -326,7 +331,7 @@ async function rejoinRoom(roomCode) {
     const snapshot = await get(ref(database, `rooms/${roomCode}`));
     if (!snapshot.exists()) {
       sessionStorage.removeItem('uno_room_code');
-      return;
+      return false;
     }
 
     const room = snapshot.val();
@@ -336,7 +341,7 @@ async function rejoinRoom(roomCode) {
       const players = room.players || {};
       if (players[myPlayerId]) {
         window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
-        return;
+        return true;
       }
     }
 
@@ -345,11 +350,14 @@ async function rejoinRoom(roomCode) {
       myRoomCode = roomCode;
       listenToRoom(roomCode);
       showScreen('waiting');
+      return true;
     } else {
       sessionStorage.removeItem('uno_room_code');
+      return false;
     }
   } catch (err) {
     sessionStorage.removeItem('uno_room_code');
+    return false;
   }
 }
 

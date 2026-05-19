@@ -35,6 +35,7 @@ let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
 let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
 let isHandlingPenalty = false; // 패널티 중복 처리 방지 락 플래그
 let isLeaving = false;       // 퇴장 중복 방지 플래그
+let isNormalRedirect = false; // 정상적인 대기실 이동 시 beforeunload 방지 플래그
 let unoCooldown = false;     // UNO 버튼 쿨타임 상태 플래그
 let unoCooldownTimer = null; // 쿨타임 타이머
 let lastProcessedPenaltyTimestamp = 0; // 중복 패널티 처리 방지용 타임스탬프
@@ -99,6 +100,7 @@ function listenToGame() {
 
     if (room.status === 'waiting') {
       // 대기실 상태로 전환되면 lobby (index.html)로 복귀 (세션 유지)
+      isNormalRedirect = true;
       window.location.href = 'index.html';
       return;
     }
@@ -1080,16 +1082,20 @@ function bindGameEvents() {
 
   // 게임 종료 후 대기실 복귀
   document.getElementById('btn-back-lobby')?.addEventListener('click', async () => {
+    isNormalRedirect = true;
     if (isHost) {
       try {
         await update(ref(database, `rooms/${myRoomCode}`), {
           status: 'waiting',
           gameState: null,
           winnerName: null,
-          winnerPlayerId: null
+          winnerPlayerId: null,
+          emotes: null
         });
+        window.location.href = 'index.html';
       } catch (err) {
         console.error("대기실 복귀 처리 실패:", err);
+        window.location.href = 'index.html';
       }
     } else {
       window.location.href = 'index.html';
@@ -1129,6 +1135,7 @@ function getAvatar(playerIdOrName, roomData) {
 
 // ─── 중간 이탈자 방출 처리 ────────────────────────
 async function leaveGameRoom() {
+  if (isNormalRedirect) return;
   if (isLeaving) return;
   isLeaving = true;
 
@@ -1167,6 +1174,7 @@ async function leaveGameRoom() {
         updates[`rooms/${myRoomCode}/winnerPlayerId`] = null;
         updates[`rooms/${myRoomCode}/emotes`] = null;
 
+        isNormalRedirect = true;
         await update(ref(database), updates);
 
         // 나간 플레이어도 세션 유지한 상태로 index.html로 복귀 (대기방 자동 진입)

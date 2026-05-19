@@ -1147,7 +1147,7 @@ async function leaveGameRoom() {
     // 나를 제외한 남은 플레이어 목록
     const remainingIds = playerIds.filter(id => id !== myPlayerId);
 
-    // 1) 나 혼자였던 방이면 방 삭제
+    // 1) 나 혼자였던 방이면 방 삭제 후 메인으로
     if (remainingIds.length === 0) {
       await remove(roomRef);
       redirectToLobby();
@@ -1156,67 +1156,85 @@ async function leaveGameRoom() {
 
     const updates = {};
 
-    // 2) 내가 호스트였으면 권한 위임
-    if (room.host === myPlayerId) {
-      updates[`rooms/${myRoomCode}/host`] = remainingIds[0];
-    }
-
-    // 3) 플레이어 목록에서 제거 및 손패 제거
-    updates[`rooms/${myRoomCode}/players/${myPlayerId}`] = null;
-    updates[`rooms/${myRoomCode}/hands/${myPlayerId}`] = null;
-    if (room.emotes && room.emotes[myPlayerId]) {
-      updates[`rooms/${myRoomCode}/emotes/${myPlayerId}`] = null;
-    }
-
-    // 4) 게임이 진행 중이었던 경우
+    // 2) 게임 진행 중이었던 경우
     if (room.status === 'playing' && room.gameState) {
-      const currentGameState = room.gameState;
-
-      if (remainingIds.length === 1) {
-        // 남은 플레이어가 1명이면 자동 승리 처리 및 대기실 복귀
+      // [★ 핵심 요구사항] 플레이어가 정확히 2명이었는데 한 명이 나가는 경우:
+      // 게임 취소 처리 및 두 명 다 세션을 보존한 상태로 대기방으로 함께 이동!
+      if (playerIds.length === 2) {
         updates[`rooms/${myRoomCode}/status`] = 'waiting';
         updates[`rooms/${myRoomCode}/gameState`] = null;
-      } else {
-        // 2명 이상 남아있는 경우 순서 재조정 및 턴 넘기기
-        const currentOrder = currentGameState.playerOrder ? Object.values(currentGameState.playerOrder) : [];
-        const myIndex = currentOrder.indexOf(myPlayerId);
+        updates[`rooms/${myRoomCode}/winnerName`] = null;
+        updates[`rooms/${myRoomCode}/winnerPlayerId`] = null;
+        updates[`rooms/${myRoomCode}/emotes`] = null;
 
-        // 새 playerOrder 구성
-        const newOrderList = currentOrder.filter(id => id !== myPlayerId);
-        const newPlayerOrder = {};
-        newOrderList.forEach((id, i) => {
-          newPlayerOrder[i] = id;
-        });
+        await update(ref(database), updates);
 
-        // 현재 턴이 나였다면 다음 생존 플레이어에게 인계
-        let nextPlayer = currentGameState.currentPlayer;
-        if (currentGameState.currentPlayer === myPlayerId) {
-          const dir = currentGameState.direction || 1;
-          let nextIdx = (myIndex + dir + currentOrder.length) % currentOrder.length;
-          nextPlayer = currentOrder[nextIdx];
-          if (!newOrderList.includes(nextPlayer)) {
-            nextPlayer = newOrderList[0];
-          }
-        }
-
-        // handCounts에서 제거
-        const newHandCounts = { ...(currentGameState.handCounts || {}) };
-        delete newHandCounts[myPlayerId];
-
-        updates[`rooms/${myRoomCode}/gameState/playerOrder`] = newPlayerOrder;
-        updates[`rooms/${myRoomCode}/gameState/playerCount`] = newOrderList.length;
-        updates[`rooms/${myRoomCode}/gameState/currentPlayer`] = nextPlayer;
-        updates[`rooms/${myRoomCode}/gameState/handCounts`] = newHandCounts;
-        updates[`rooms/${myRoomCode}/gameState/lastAction`] = {
-          type: 'leave',
-          playerName: myName,
-          message: `🚪 ${myName}님이 게임을 나갔습니다.`,
-          timestamp: Date.now()
-        };
+        // 나간 플레이어도 세션 유지한 상태로 index.html로 복귀 (대기방 자동 진입)
+        window.location.href = 'index.html';
+        return;
       }
+
+      // 플레이어가 3명 이상일 때 1명이 나가는 경우:
+      // 나간 플레이어를 완전히 방에서 삭제하고 세션 파괴, 남은 사람들끼리 진행!
+      if (room.host === myPlayerId) {
+        updates[`rooms/${myRoomCode}/host`] = remainingIds[0];
+      }
+
+      updates[`rooms/${myRoomCode}/players/${myPlayerId}`] = null;
+      updates[`rooms/${myRoomCode}/hands/${myPlayerId}`] = null;
+      if (room.emotes && room.emotes[myPlayerId]) {
+        updates[`rooms/${myRoomCode}/emotes/${myPlayerId}`] = null;
+      }
+
+      const currentGameState = room.gameState;
+      const currentOrder = currentGameState.playerOrder ? Object.values(currentGameState.playerOrder) : [];
+      const myIndex = currentOrder.indexOf(myPlayerId);
+
+      // 새 playerOrder 구성
+      const newOrderList = currentOrder.filter(id => id !== myPlayerId);
+      const newPlayerOrder = {};
+      newOrderList.forEach((id, i) => {
+        newPlayerOrder[i] = id;
+      });
+
+      // 현재 턴이 나였다면 다음 생존 플레이어에게 인계
+      let nextPlayer = currentGameState.currentPlayer;
+      if (currentGameState.currentPlayer === myPlayerId) {
+        const dir = currentGameState.direction || 1;
+        let nextIdx = (myIndex + dir + currentOrder.length) % currentOrder.length;
+        nextPlayer = currentOrder[nextIdx];
+        if (!newOrderList.includes(nextPlayer)) {
+          nextPlayer = newOrderList[0];
+        }
+      }
+
+      // handCounts에서 제거
+      const newHandCounts = { ...(currentGameState.handCounts || {}) };
+      delete newHandCounts[myPlayerId];
+
+      updates[`rooms/${myRoomCode}/gameState/playerOrder`] = newPlayerOrder;
+      updates[`rooms/${myRoomCode}/gameState/playerCount`] = newOrderList.length;
+      updates[`rooms/${myRoomCode}/gameState/currentPlayer`] = nextPlayer;
+      updates[`rooms/${myRoomCode}/gameState/handCounts`] = newHandCounts;
+      updates[`rooms/${myRoomCode}/gameState/lastAction`] = {
+        type: 'leave',
+        playerName: myName,
+        message: `🚪 ${myName}님이 게임을 나갔습니다.`,
+        timestamp: Date.now()
+      };
+
+      await update(ref(database), updates);
+      redirectToLobby();
+      return;
     }
 
-    await update(ref(database), updates);
+    // 게임 시작 대기 중이거나 이미 종료된 방에서 나가는 경우
+    if (room.host === myPlayerId) {
+      await remove(roomRef);
+    } else {
+      updates[`rooms/${myRoomCode}/players/${myPlayerId}`] = null;
+      await update(ref(database), updates);
+    }
     redirectToLobby();
   } catch (err) {
     console.error("퇴장 처리 중 오류 발생:", err);

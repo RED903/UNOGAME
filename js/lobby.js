@@ -15,7 +15,7 @@ let roomListener = null;
 
 // 프로필 아바타 리스트
 const AVATARS = ['🦊', '🐱', '🐶', '🐻', '🐼', '🦁', '🐯', '🦝', '🐺', '🦄', '🐸', '🐙'];
-let selectedAvatar = AVATARS[0]; // 기본값 Fox
+let selectedAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]; // 최초 접속 시 랜덤 아바타 기본 선택
 
 // DOM 요소
 const screens = {

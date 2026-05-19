@@ -167,10 +167,10 @@ export function renderCardSVG(card, options = {}) {
       filter="url(#textShadow_${card.id})">${cornerText}</text>
 
     <!-- 우하단 값 (뒤집힘) -->
-    <text x="${w - cornerPad - 3}" y="${h - cornerPad}"
+    <text x="${cornerPad + 3}" y="${cornerPad + cornerFontSize}"
       font-size="${cornerFontSize}" font-weight="900" fill="white"
       font-family="'Arial Black', Arial, sans-serif"
-      text-anchor="end" transform="rotate(180, ${w/2}, ${h/2})"
+      transform="rotate(180, ${w/2}, ${h/2})"
       filter="url(#textShadow_${card.id})">${cornerTextBot}</text>
 
     <!-- 선택된 카드 강조 테두리 -->

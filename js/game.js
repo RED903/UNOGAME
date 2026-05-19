@@ -93,8 +93,8 @@ function listenToGame() {
 
     if (room.status === 'finished') {
       handleGameFinished(room);
-    } else if (room.status === 'restarting') {
-      // 다시 시작 중 - 모달 닫기
+    } else if (room.status === 'restarting' || room.status === 'playing') {
+      // 다시 시작 중이거나 플레이 중이면 게임 종료 모달 닫기
       const modal = document.getElementById('game-over-modal');
       if (modal) modal.style.display = 'none';
     }
@@ -762,26 +762,59 @@ async function handleRestartGame() {
   const modal = document.getElementById('game-over-modal');
   if (modal) modal.style.display = 'none';
 
-  // 방 상태를 재시작으로 변경
-  await update(ref(database, `rooms/${myRoomCode}`), {
-    status: 'restarting'
-  });
+  try {
+    const snap = await get(ref(database, `rooms/${myRoomCode}`));
+    if (!snap.exists()) return;
 
-  // 잠시 후 gameState 삭제 후 재초기화
-  setTimeout(async () => {
-    // 기존 손패 및 게임 상태 초기화
+    const room = snap.val();
+    const playerIds = Object.keys(room.players || {});
+    const initialState = initializeGame(playerIds, 7);
+
+    // 손패는 플레이어별로 분리 저장 (보안)
+    const handsUpdate = {};
+    for (const [pid, hand] of Object.entries(initialState.hands)) {
+      handsUpdate[`rooms/${myRoomCode}/hands/${pid}`] = hand;
+    }
+
+    // 게임 상태 구성 (손패 제외)
+    const gameStateToSave = {
+      deck: initialState.deck,
+      discardPile: initialState.discardPile,
+      currentColor: initialState.currentColor,
+      currentPlayer: initialState.currentPlayer,
+      direction: initialState.direction,
+      drawCount: initialState.drawCount,
+      unoCalledBy: null,
+      started: true,
+      finished: false,
+      winner: null,
+      lastAction: { type: 'game_start', timestamp: Date.now() }
+    };
+
+    // 플레이어 순서 저장
+    const playerOrder = {};
+    playerIds.forEach((id, i) => { playerOrder[i] = id; });
+    gameStateToSave.playerOrder = playerOrder;
+    gameStateToSave.playerCount = playerIds.length;
+
+    // 초기 손패 개수 저장
+    const handCounts = {};
+    for (const [pid, hand] of Object.entries(initialState.hands)) {
+      handCounts[pid] = hand.length;
+    }
+    gameStateToSave.handCounts = handCounts;
+
+    // 단일 트랜잭션 업데이트로 모든 방원들이 즉시 갱신되도록 처리
     await update(ref(database), {
-      [`rooms/${myRoomCode}/gameState`]: null,
-      [`rooms/${myRoomCode}/status`]: 'playing'
+      [`rooms/${myRoomCode}/gameState`]: gameStateToSave,
+      [`rooms/${myRoomCode}/status`]: 'playing',
+      [`rooms/${myRoomCode}/emotes`]: null, // 감정표현 초기화
+      ...handsUpdate
     });
-    // 잠시 후 방장이 새 게임 초기화
-    setTimeout(async () => {
-      const snap = await get(ref(database, `rooms/${myRoomCode}`));
-      if (snap.exists()) {
-        await initNewGame(snap.val());
-      }
-    }, 500);
-  }, 300);
+  } catch (err) {
+    console.error('게임 재시작 실패:', err);
+    alert('게임 재시작 중 오류가 발생했습니다.');
+  }
 }
 
 // ─── 감정표현 ────────────────────────────────────

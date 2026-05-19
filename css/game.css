@@ -459,6 +459,17 @@
   animation: catchPulse 0.7s ease-in-out infinite alternate;
 }
 
+/* UNO 평소 상태 (회색 비활성화) */
+#btn-uno.btn-uno-disabled {
+  background: linear-gradient(135deg, #555555, #3a3a3a);
+  color: #a0a0a0;
+  border: 1px solid #2a2a2a;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.6;
+  animation: none;
+}
+
 #btn-uno:hover { transform: scale(1.1); filter: brightness(1.1); }
 #btn-uno:active { transform: scale(0.95); }
 #btn-uno:disabled {

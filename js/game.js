@@ -712,22 +712,27 @@ function checkUnoStatus() {
   // 잡을 수 있는 상대가 있는지
   const catchTarget = getCatchableTarget();
 
+  // UNO 버튼은 항상 보이게 설정
+  unoBtn.style.display = 'inline-flex';
+
   if (canCall) {
-    // 내 UNO 선언 모드
-    unoBtn.style.display = 'inline-flex';
+    // 내 UNO 선언 모드 (노란색)
     unoBtn.textContent = '🔔 UNO!';
-    unoBtn.className = 'btn-uno-call'; // 노란색 계열
+    unoBtn.className = 'btn-uno-call';
     unoBtn.setAttribute('title', '지금 UNO를 외치세요! 안 외치면 패널티!');
+    if (unoBtn.disabled) unoBtn.disabled = false;
   } else if (catchTarget) {
-    // 잡기 모드
-    unoBtn.style.display = 'inline-flex';
+    // 잡기 모드 (빨간색)
     unoBtn.textContent = '🚨 UNO 잡기!';
-    unoBtn.className = 'btn-uno-catch'; // 빨간색 계열
+    unoBtn.className = 'btn-uno-catch';
     unoBtn.setAttribute('title', 'UNO를 외치지 않은 상대를 잡으세요!');
+    if (unoBtn.disabled) unoBtn.disabled = false;
   } else {
-    // 표시 안 함
-    unoBtn.style.display = 'none';
-    unoBtn.className = '';
+    // 평소 모드 (회색 비활성화)
+    unoBtn.textContent = '🔔 UNO';
+    unoBtn.className = 'btn-uno-disabled';
+    unoBtn.setAttribute('title', 'UNO를 외칠 상황이 아닙니다.');
+    unoBtn.disabled = true;
   }
 }
 
@@ -929,11 +934,10 @@ function initEmotePanel() {
     `<button class="emote-btn" data-emote="${e}" title="${e}">${e}</button>`
   ).join('');
 
-  // 개별 이모지 클릭
+  // 개별 이모지 클릭 (보내도 이모지 창을 닫지 않음)
   listEl.querySelectorAll('.emote-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const emote = btn.dataset.emote;
-      listEl.classList.remove('open');
       sendEmote(emote);
     });
   });
@@ -944,10 +948,7 @@ function initEmotePanel() {
     listEl.classList.toggle('open');
   });
 
-  // 외부 클릭 시 닫기
-  document.addEventListener('click', () => {
-    listEl.classList.remove('open');
-  });
+  // 외부 클릭 시 닫는 로직 제거 (수동으로 다시 토글 버튼을 눌러야 닫히게 설정)
 }
 
 async function sendEmote(emote) {
@@ -962,8 +963,8 @@ async function sendEmote(emote) {
     console.error('감정표현 전송 실패:', e);
   }
 
-  // 내 화면에서도 보이게 (자기 자신 팝업)
-  showEmotePopupSelf(emote);
+  // 내 화면에서도 플레이어 사이드바 내 이름 오른쪽에 이모지가 팝업되도록 설정
+  showEmotePopup(myPlayerId, emote, Date.now());
 }
 
 // 이미 표시된 감정표현 타임스탬프 추적 (중복 방지)

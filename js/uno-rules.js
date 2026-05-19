@@ -139,15 +139,9 @@ export function processCardPlay(card, gameState, playerId, playerIds) {
       // 방향 반전
       changes.reverseDirection = true;
       const newDir = -direction;
-      // 2명일 경우 Reverse는 Skip처럼 작동 → 낸 사람이 다시 냄
-      if (playerIds.length === 2) {
-        changes.skipNext = true;
-        changes.nextPlayer = playerId; // 자기 차례 계속
-      } else {
-        // 방향이 바뀐 뒤의 다음 플레이어 계산
-        const revIndex = (currentIndex + newDir + playerIds.length) % playerIds.length;
-        changes.nextPlayer = playerIds[revIndex];
-      }
+      // 2명 플레이어일 때도 스킵 처리하지 않고, 방향 전환 후 계산된 상대방에게 턴을 넘깁니다.
+      const revIndex = (currentIndex + newDir + playerIds.length) % playerIds.length;
+      changes.nextPlayer = playerIds[revIndex];
       break;
 
     case CARD_TYPES.DRAW_TWO:

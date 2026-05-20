@@ -15,6 +15,25 @@ import { shouldStartHoldemRound, startHoldemRound, calcPhaseBet, getPhaseBaseAnt
 const PHASE_ORDER  = ['preflop', 'flop', 'turn', 'river'];
 const PHASE_NAMES  = { preflop: '프리플랍', flop: '플랍', turn: '턴', river: '리버', showdown: '쇼다운' };
 
+/** Firebase가 배열을 객체로 저장한 경우 대비 */
+function asArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') {
+    return Object.keys(val).sort((a, b) => Number(a) - Number(b)).map(k => val[k]);
+  }
+  return [];
+}
+
+function getPlayerOrder(gs) {
+  return asArray(gs?.playerOrder);
+}
+
+function getActorOrder(state) {
+  const order = asArray(state?.actorOrder);
+  return order.length ? order : getPlayerOrder(state);
+}
+
 /** 이번 단계에서 해당 플레이어가 아직 내야 할 칩 */
 function getBetOwed(gs, pid) {
   const target = gs.phaseAnte ?? calcPhaseBet(gs.phase, gs.snapMultiplier ?? 1);
@@ -38,7 +57,7 @@ function canActThisTurn(state, pid) {
 
 /** 아직 배팅·스냅콜이 남은 첫 플레이어 (actorOrder 기준) */
 function findFirstPendingActor(state) {
-  const order = state.actorOrder || state.playerOrder || [];
+  const order = getActorOrder(state);
   for (const pid of order) {
     if (state.folded?.[pid]) continue;
     if (!state.phaseActed?.[pid]) return pid;
@@ -371,7 +390,7 @@ function scheduleHostActions() {
     if (cur.finished) return;
 
     // 활성 플레이어 수 확인
-    const active = (cur.playerOrder || []).filter(p => !cur.folded?.[p]);
+    const active = getPlayerOrder(cur).filter(p => !cur.folded?.[p]);
 
     const pending = findFirstPendingActor(cur);
 
@@ -413,7 +432,7 @@ function scheduleHostActions() {
 
 // 다음 액터 계산 (미행동자 → 스냅으로 부족한 사람 순, 시계 방향 한 바퀴)
 function computeNextActor(state, currentPid, extraFolded = {}) {
-  const order  = state.actorOrder || state.playerOrder || [];
+  const order  = getActorOrder(state);
   const folded = { ...(state.folded || {}), ...extraFolded };
   const curIdx = order.indexOf(currentPid);
   if (curIdx < 0) return null;
@@ -553,7 +572,7 @@ async function triggerPhaseComplete(curGs) {
     return;
   }
 
-  const playerOrder = gs2.playerOrder || [];
+  const playerOrder = getPlayerOrder(gs2);
   const folded      = gs2.folded || {};
   const active      = playerOrder.filter(p => !folded[p]);
 
@@ -597,7 +616,7 @@ async function advancePhase(curGs, active, nextPhase) {
   const phaseAnte = calcPhaseBet(nextPhase, snapMult);
 
   // 액터 순서 (딜러 다음 살아있는 사람부터)
-  const playerOrder = curGs.playerOrder || [];
+  const playerOrder = getPlayerOrder(curGs);
   const dealerIdx = curGs.dealerIndex ?? 0;
   const actorOrder = [];
   const newFolded = { ...(curGs.folded || {}) };
@@ -769,7 +788,7 @@ function renderOpponents() {
   const area = document.getElementById('opponents-area');
   if (!area || !gs) return;
 
-  const opponents = (gs.playerOrder || []).filter(pid => pid !== myPlayerId);
+  const opponents = getPlayerOrder(gs).filter(pid => pid !== myPlayerId);
   const winners   = gs.winner ? (Array.isArray(gs.winner) ? gs.winner : [gs.winner]) : [];
 
   area.innerHTML = opponents.map(pid => {
@@ -778,7 +797,7 @@ function renderOpponents() {
     const avatar   = p.avatar || '🤖';
     const chips    = gs.chipCounts?.[pid] ?? 0;
     const isFolded = gs.folded?.[pid];
-    const isDealer = (gs.playerOrder?.indexOf(pid) === gs.dealerIndex);
+    const isDealer = (getPlayerOrder(gs).indexOf(pid) === gs.dealerIndex);
     const isWinner = winners.includes(pid);
     const sdData   = gs.showdownData?.[pid];
 
@@ -800,7 +819,7 @@ function renderOpponents() {
       ).join('')}</div>`;
     }
 
-    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''} ${needsResponse ? 'needs-response' : ''}">
+    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''} ${waitingRevisit ? 'needs-response' : ''}">
       ${isDealer ? '<div class="dealer-chip">D</div>' : ''}
       <div class="p-avatar">${avatar}</div>
       ${cardHtml}
@@ -1033,7 +1052,7 @@ function renderChipList() {
   const list = document.getElementById('chip-list');
   if (!list || !gs) return;
 
-  list.innerHTML = (gs.playerOrder || []).map(pid => {
+  list.innerHTML = getPlayerOrder(gs).map(pid => {
     const p      = roomPlayersCache[pid] || {};
     const isMe   = pid === myPlayerId;
     const act    = gs.currentActor === pid;
@@ -1063,7 +1082,7 @@ function showShowdown() {
 
   const playersEl = overlay.querySelector('.showdown-players');
   if (playersEl) {
-    playersEl.innerHTML = (gs.playerOrder || []).map(pid => {
+    playersEl.innerHTML = getPlayerOrder(gs).map(pid => {
       const p        = roomPlayersCache[pid] || {};
       const isWinner = winners.includes(pid);
       const isFolded = gs.folded?.[pid];

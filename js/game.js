@@ -1494,9 +1494,9 @@ function checkBotsUnoCatch() {
   // 이미 봇이 우노잡기 실행을 준비 중이라면 중복 타이머 방지
   if (botUnoCatchTimer) return;
 
-  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.8초 ~ 1.8초로 랜덤)
+  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.4초 ~ 1.2초로 랜덤 - 더욱 신속하게 반응)
   // 유저가 이 사이에 먼저 우노 선언을 하거나, 유저가 먼저 우노잡기를 클릭하면 타이머는 무효화됩니다.
-  const catchDelay = 800 + Math.random() * 1000;
+  const catchDelay = 400 + Math.random() * 800;
 
   botUnoCatchTimer = setTimeout(async () => {
     try {
@@ -1732,8 +1732,8 @@ async function executeBotAction(botId) {
       delete botUnoTimersMap[botId];
     }
 
-    // 0.7초 ~ 1.3초 뒤 봇의 우노 자동 등록 (무작위 지연 적용)
-    const unoDelay = 700 + Math.random() * 600;
+    // 0.4초 ~ 0.9초 뒤 봇의 우노 자동 등록 (무작위 지연 적용 - 더욱 민첩하게 외침)
+    const unoDelay = 400 + Math.random() * 500;
     botUnoTimersMap[botId] = setTimeout(async () => {
       // 그 사이에 다른 사람에게 잡히지 않고, 봇이 여전히 1장 손패를 들고 있다면
       const currentSnap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
@@ -1789,7 +1789,8 @@ async function executeBotAction(botId) {
 /** 
  * 똑똑한 카드 선별 인공지능 분석기 
  * - 상대(특히 유저) 손패가 1~3장이면 공격 카드를 우선적으로 날림!
- * - 그렇지 않으면 가장 점수가 리스크한 카드(숫자가 크거나 액션 카드) 순으로 방출!
+ * - 비장의 무기인 와일드 카드(WILD, WILD_DRAW_FOUR)는 평상시에는 손에 아껴두고 일반 카드를 먼저 냅니다.
+ * - 단, 상대방이 3장 이하로 남았거나 자신이 곧 끝낼 수 있는 상황(손패 2장 이하)일 때는 아끼지 않고 냅니다!
  */
 function smartChooseCard(playableCards, hand) {
   if (playableCards.length === 1) return playableCards[0];
@@ -1804,11 +1805,16 @@ function smartChooseCard(playableCards, hand) {
     }
   }
 
+  // 내(봇) 현재 손패 개수
+  const myHandCount = hand.length;
+
   // 상대방이 3장 이하인 위급 상황인가?
   const isEmergency = minOpponentCards <= 3;
+  // 게임 후반부이거나 내가 곧 끝낼 수 있는 상황인가? (내 패가 2장 이하)
+  const isEndGame = myHandCount <= 2;
 
+  // 1) 위급 상황(공격 필요) 시 강력한 공격 카드를 우선적으로 투척 (+4, +2, Skip 순)
   if (isEmergency) {
-    // 상대 견제를 위해 강한 공격 카드들을 필터링 (+4, +2, Skip 순)
     const d4 = playableCards.find(c => c.type === CARD_TYPES.WILD_DRAW_FOUR);
     if (d4) return d4;
     const d2 = playableCards.find(c => c.type === CARD_TYPES.DRAW_TWO);
@@ -1817,16 +1823,23 @@ function smartChooseCard(playableCards, hand) {
     if (skip) return skip;
   }
 
-  // 특수 견제 상황이 아니거나, 공격 카드가 없는 경우 -> 점수가 가장 높은 카드를 털어서 리스크 회피
-  // (점수 비중: 와일드(50) > 액션카드(20) > 높은 숫자순)
-  return playableCards.reduce((bestCard, card) => {
+  // 2) 평상시(위급 상황이 아니거나, 공격 카드가 없는 경우):
+  // 범용성이 최고인 와일드 카드(WILD, WILD_DRAW_FOUR)는 평상시 일반 카드가 낼 수 있는 게 
+  // 단 하나라도 있다면 아껴두고 일반 카드를 우선적으로 냅니다.
+  const nonWildPlayables = playableCards.filter(c => c.type !== CARD_TYPES.WILD && c.type !== CARD_TYPES.WILD_DRAW_FOUR);
+
+  // 평상시이고 일반 카드 중 낼 수 있는 카드가 존재하며, 아직 봇 자신의 후반(2장 이하)이 아니라면 일반 카드를 우선 선정
+  const targetPool = (nonWildPlayables.length > 0 && !isEndGame) ? nonWildPlayables : playableCards;
+
+  // 대상 풀 중에서 리스크 점수가 높은 카드(숫자가 크거나 액션 카드) 순으로 방출하여 벌점 리스크 회피
+  return targetPool.reduce((bestCard, card) => {
     const getWeight = (c) => {
       if (c.type === CARD_TYPES.WILD_DRAW_FOUR || c.type === CARD_TYPES.WILD) return 50;
       if (c.type === CARD_TYPES.DRAW_TWO || c.type === CARD_TYPES.SKIP || c.type === CARD_TYPES.REVERSE) return 20;
       return c.value || 0;
     };
     return getWeight(card) > getWeight(bestCard) ? card : bestCard;
-  }, playableCards[0]);
+  }, targetPool[0]);
 }
 
 /**

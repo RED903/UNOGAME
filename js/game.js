@@ -570,7 +570,6 @@ async function playCard(card, chosenColor) {
   // 이긴 경우
   const hasWon = newHand.length === 0;
 
-  // 손패 개수 업데이트 (사이드바용)
   const handCounts = { ...(gameState.handCounts || {}) };
   handCounts[myPlayerId] = newHand.length;
 
@@ -591,6 +590,13 @@ async function playCard(card, chosenColor) {
       timestamp: Date.now()
     }
   };
+
+  // [★ 신규 룰 적용] 유저가 2장에서 1장으로 줄어든 경우 우노잡기 타겟으로 지정, 그 외에는 우노잡기 대상 만료
+  if (newHand.length === 1 && !hasWon) {
+    updates[`rooms/${myRoomCode}/gameState/unoCatchablePlayer`] = myPlayerId;
+  } else {
+    updates[`rooms/${myRoomCode}/gameState/unoCatchablePlayer`] = null;
+  }
 
   if (hasWon) {
     // 게임 종료: 방은 삭제하지 않고 상태만 변경 (다시 시작 가능)
@@ -656,6 +662,7 @@ async function handleDrawCard() {
     [`rooms/${myRoomCode}/gameState/drawCount`]: 0,
     [`rooms/${myRoomCode}/gameState/currentPlayer`]: nextPlayer,
     [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+    [`rooms/${myRoomCode}/gameState/unoCatchablePlayer`]: null, // [★ 신규 룰 적용] 행동을 개시했으므로 이전 우노잡기 대상은 만료됨
     [`rooms/${myRoomCode}/gameState/lastAction`]: {
       type: drawCount > 1 ? 'draw_penalty' : 'draw_card',
       playerName: myName,
@@ -745,6 +752,7 @@ async function doUnoCall() {
       // 우노 선언 데이터 세팅
       currentData.unoCalledBy = myPlayerId;
       currentData.unoTimestamp = Date.now();
+      currentData.unoCatchablePlayer = null; // [★ 신규 룰 적용] 우노를 정상 선언했으므로 우노잡기 대상 만료
       currentData.lastAction = {
         type: 'uno_call',
         playerName: myName,
@@ -797,6 +805,7 @@ async function doCatchUno(targetPlayerId) {
       currentData.unoPenaltyTimestamp = Date.now();
       currentData.unoCalledBy = null;
       currentData.unoTimestamp = null;
+      currentData.unoCatchablePlayer = null; // [★ 신규 룰 적용] 우노잡기를 이미 성공했으므로 대상 만료
       currentData.lastAction = {
         type: 'uno_penalty',
         playerName: myName,
@@ -834,13 +843,12 @@ async function doCatchUno(targetPlayerId) {
  */
 function getCatchableTarget() {
   if (!gameState) return null;
-  const handCounts = gameState.handCounts || {};
+  const target = gameState.unoCatchablePlayer;
   const unoCalledBy = gameState.unoCalledBy;
 
-  for (const [pid, count] of Object.entries(handCounts)) {
-    if (count === 1 && pid !== myPlayerId && pid !== unoCalledBy) {
-      return pid;
-    }
+  // 1장이 된 직후의 명확한 우노잡기 대상이 존재하고, 그 대상이 내가 아니며, 아직 우노를 선언하지 않은 경우에만 잡기 허용
+  if (target && target !== myPlayerId && target !== unoCalledBy) {
+    return target;
   }
   return null;
 }
@@ -1494,9 +1502,9 @@ function checkBotsUnoCatch() {
   // 이미 봇이 우노잡기 실행을 준비 중이라면 중복 타이머 방지
   if (botUnoCatchTimer) return;
 
-  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.4초 ~ 1.2초로 랜덤 - 더욱 신속하게 반응)
+  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.5초 ~ 1.2초로 랜덤 - 우노 선언 0.4초대보다 약간 더 여유 부여)
   // 유저가 이 사이에 먼저 우노 선언을 하거나, 유저가 먼저 우노잡기를 클릭하면 타이머는 무효화됩니다.
-  const catchDelay = 400 + Math.random() * 800;
+  const catchDelay = 500 + Math.random() * 700;
 
   botUnoCatchTimer = setTimeout(async () => {
     try {
@@ -1533,6 +1541,7 @@ function checkBotsUnoCatch() {
           unoPenaltyTimestamp: Date.now(),
           unoCalledBy: null,
           unoTimestamp: null,
+          unoCatchablePlayer: null, // [★ 신규 룰 적용] 봇이 우노잡기를 성공했으므로 대상 만료
           lastAction: {
             type: 'uno_penalty',
             playerName: botName,
@@ -1554,14 +1563,12 @@ function checkBotsUnoCatch() {
 /** 봇 시점에서의 우노잡기 타겟 검출 */
 function getCatchableTargetForBots() {
   if (!gameState) return null;
-  const handCounts = gameState.handCounts || {};
+  const target = gameState.unoCatchablePlayer;
   const unoCalledBy = gameState.unoCalledBy;
 
-  for (const [pid, count] of Object.entries(handCounts)) {
-    // 손패가 1장이고 아직 우노를 성공적으로 외치지 않은 모든 플레이어가 잡기 후보 대상
-    if (count === 1 && pid !== unoCalledBy) {
-      return pid;
-    }
+  // 1장이 된 직후의 명확한 우노잡기 대상이 존재하고, 아직 우노를 선언하지 않은 경우에만 잡기 허용
+  if (target && target !== unoCalledBy) {
+    return target;
   }
   return null;
 }
@@ -1642,6 +1649,7 @@ async function executeBotAction(botId) {
       [`rooms/${myRoomCode}/gameState/drawCount`]: 0,
       [`rooms/${myRoomCode}/gameState/currentPlayer`]: nextPlayer,
       [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+      [`rooms/${myRoomCode}/gameState/unoCatchablePlayer`]: null, // [★ 신규 룰 적용] 봇이 드로우를 했으므로 우노잡기 대상 만료
       [`rooms/${myRoomCode}/gameState/lastAction`]: {
         type: drawCount > 1 ? 'draw_penalty' : 'draw_card',
         playerName: `컴퓨터(${roomPlayersCache[botId]?.name || '봇'})`,
@@ -1714,6 +1722,13 @@ async function executeBotAction(botId) {
     }
   };
 
+  // [★ 신규 룰 적용] 봇이 2장에서 1장으로 줄어든 경우 우노잡기 타겟으로 지정, 그 외에는 우노잡기 대상 만료
+  if (newHand.length === 1 && !hasWon) {
+    updates[`rooms/${myRoomCode}/gameState/unoCatchablePlayer`] = botId;
+  } else {
+    updates[`rooms/${myRoomCode}/gameState/unoCatchablePlayer`] = null;
+  }
+
   if (hasWon) {
     updates[`rooms/${myRoomCode}/gameState/finished`] = true;
     updates[`rooms/${myRoomCode}/gameState/winner`] = botId;
@@ -1754,6 +1769,7 @@ async function executeBotAction(botId) {
 
             currentData.unoCalledBy = botId;
             currentData.unoTimestamp = Date.now();
+            currentData.unoCatchablePlayer = null; // [★ 신규 룰 적용] 우노를 정상 선언했으므로 우노잡기 대상 만료
             currentData.lastAction = {
               type: 'uno_call',
               playerName: roomPlayersCache[botId]?.name || '봇',

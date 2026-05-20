@@ -3,8 +3,18 @@
 import { database, ref, update } from './firebase-config.js';
 import { createDeck, shuffleDeck } from './holdem-rules.js';
 
-const PHASE_ANTES = { preflop: 1, flop: 2, turn: 4, river: 8 };
+/** 단계별 기본 배팅 (스냅 배율이 곱해짐) */
+export const PHASE_BASE_ANTES = { preflop: 1, flop: 2, turn: 4, river: 8 };
 const HOLDEM_PHASES = new Set(['waiting', 'preflop', 'flop', 'turn', 'river', 'showdown']);
+
+export function getPhaseBaseAnte(phase) {
+  return PHASE_BASE_ANTES[phase] ?? 1;
+}
+
+/** 이번 단계 1회 배팅액 = 기본 × 판 배율 */
+export function calcPhaseBet(phase, snapMultiplier = 1) {
+  return getPhaseBaseAnte(phase) * snapMultiplier;
+}
 
 export function getStartingChips(n) {
   if (n <= 4) return 250;
@@ -62,13 +72,7 @@ export async function startHoldemRound(roomCode, room) {
     usedCardIds.push(...cards.map(c => c.id));
   }
 
-  const phaseAnte = PHASE_ANTES.preflop;
-  let pot = 0;
-  for (const pid of playerIds) {
-    const pay = Math.min(phaseAnte, chipCounts[pid]);
-    chipCounts[pid] -= pay;
-    pot += pay;
-  }
+  const phaseAnte = calcPhaseBet('preflop', 1);
 
   const firstActorIdx = (dealerIndex + 1) % playerIds.length;
   const actorOrder = [];
@@ -84,10 +88,11 @@ export async function startHoldemRound(roomCode, room) {
     phaseActed: {},
     chipCounts,
     folded: {},
-    pot,
+    pot: 0,
     communityCards: [],
     dealerIndex,
     phaseAnte,
+    phasePaid: {},
     usedCardIds,
     snapCount: 0,
     maxSnaps,
@@ -102,7 +107,7 @@ export async function startHoldemRound(roomCode, room) {
     winner: null,
     winnerHand: null,
     showdownData: null,
-    lastAction: { type: 'deal', playerName: '딜러', amount: phaseAnte, timestamp: Date.now() }
+    lastAction: { type: 'deal', playerName: '딜러', amount: 0, timestamp: Date.now() }
   };
 
   await update(ref(database), {

@@ -44,9 +44,9 @@
         <!-- 정보 문구 -->
         <div class="action-info" id="action-info">게임 시작을 기다리는 중...</div>
 
-        <!-- 스냅 배율 표시 -->
+        <!-- 판 배율 · 이후 단계 배팅 미리보기 -->
         <div class="snap-multiplier-row">
-          <span class="snap-label">⚡스냅:</span>
+          <span class="snap-label">📊 배율:</span>
           <div id="snap-multiplier" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"></div>
           <span id="snap-remain" style="font-size:0.7rem; color:rgba(240,240,255,0.4); margin-left:6px;"></span>
         </div>
@@ -54,17 +54,17 @@
         <!-- 일반 액션 버튼 (콜/죽기/스냅) -->
         <div id="normal-actions" class="action-group">
           <button id="btn-stay" class="btn-action btn-stay">
-            <span class="btn-icon">✓</span>
+            <span class="btn-icon">💰</span>
             <div class="btn-text-wrap">
-              <span class="btn-label" id="btn-stay-label">콜</span>
-              <span class="btn-sub" id="btn-stay-sub">생존 유지</span>
+              <span class="btn-label" id="btn-stay-label">배팅</span>
+              <span class="btn-sub" id="btn-stay-sub">클릭 시 칩 차감</span>
             </div>
           </button>
           <button id="btn-snap" class="btn-action btn-snap">
             <span class="btn-icon">⚡</span>
             <div class="btn-text-wrap">
-              <span class="btn-label">스냅!</span>
-              <span class="btn-sub">판돈 2배</span>
+              <span class="btn-label">판돈 2배</span>
+              <span class="btn-sub">배팅 + 이후 단계 2배</span>
             </div>
           </button>
           <button id="btn-fold" class="btn-action btn-fold">
@@ -98,12 +98,12 @@
             <span class="stat-value" id="rule-starting-chips" style="font-size:0.7rem; color:#d4af37; font-weight:700;">250 / 500 / 750칩</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">배팅 방식</span>
-            <span class="stat-value" style="font-size:0.7rem;">자동 (1→2→4→8칩)</span>
+            <span class="stat-label">기본 배팅</span>
+            <span class="stat-value" style="font-size:0.7rem;">프리1 → 플2 → 턴4 → 리8</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">스냅 배율</span>
-            <span class="stat-value gold">×1→×2→×4→×8</span>
+            <span class="stat-label">판돈 2배</span>
+            <span class="stat-value gold">클릭 시 배율×2 · 이후 단계에도 적용</span>
           </div>
           <div class="stat-row">
             <span class="stat-label">단계</span>

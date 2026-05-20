@@ -59,8 +59,8 @@ body {
 .poker-table-area {
   display: grid;
   grid-template-rows: auto 1fr auto auto;
-  padding: 16px;
-  gap: 12px;
+  padding: 12px;
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -69,74 +69,85 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 16px;
+  gap: 10px;
   flex-wrap: wrap;
-  padding: 4px 0;
+  padding: 2px 0;
+  min-height: 90px;
 }
 
-/* 플레이어 패널 */
+/* 플레이어 패널 - 테이블 침범 방지를 위해 컴팩트 크기로 최적화 */
 .player-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: 4px;
+  padding: 6px 10px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  min-width: 110px;
+  border-radius: 12px;
+  min-width: 90px;
+  max-height: 125px;
   position: relative;
   transition: all 0.3s;
 }
 .player-panel.active-turn {
   border-color: var(--poker-gold);
   background: rgba(212,175,55,0.12);
-  box-shadow: 0 0 20px rgba(212,175,55,0.3);
+  box-shadow: 0 0 15px rgba(212,175,55,0.25);
 }
 .player-panel.folded {
-  opacity: 0.4;
-  filter: grayscale(0.7);
+  opacity: 0.35;
+  filter: grayscale(0.85);
 }
 .player-panel.winner {
   border-color: #FFD900;
   background: rgba(255,217,0,0.15);
-  box-shadow: 0 0 30px rgba(255,217,0,0.5);
+  box-shadow: 0 0 25px rgba(255,217,0,0.4);
   animation: winnerPulse 1s ease-in-out infinite;
 }
 @keyframes winnerPulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(255,217,0,0.4); }
-  50%  { box-shadow: 0 0 50px rgba(255,217,0,0.9); }
+  0%, 100% { box-shadow: 0 0 15px rgba(255,217,0,0.3); }
+  50%  { box-shadow: 0 0 40px rgba(255,217,0,0.8); }
 }
 
 .player-panel .p-avatar {
-  font-size: 1.6rem;
+  font-size: 1.3rem; /* 크기 약간 조율 */
   line-height: 1;
 }
 .player-panel .p-name {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--uno-text);
   text-align: center;
-  max-width: 90px;
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .player-panel .p-chips {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--poker-gold2);
   font-weight: 700;
 }
 .player-panel .p-bet {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: rgba(240,240,255,0.55);
-  min-height: 14px;
+  min-height: 12px;
 }
 
 /* 상대방 홀 카드 영역 */
 .opponent-cards {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+}
+.opponent-cards > div {
+  max-width: 38px;
+  max-height: 55px;
+  overflow: hidden;
+}
+.opponent-cards svg {
+  width: 38px !important;
+  height: 55px !important;
 }
 
 /* 딜러 마크 */
@@ -175,6 +186,8 @@ body {
     0 0 0 8px rgba(212,175,55,0.15),
     0 20px 60px rgba(0,0,0,0.8);
   overflow: hidden;
+  min-height: 250px; /* 상대 패널 팽창 시 찌그러짐 원천 방어 */
+  flex-shrink: 0;   /* 그리드 내 세로 비율 보존 */
 }
 
 /* 테이블 외곽 골드 테두리 링 */

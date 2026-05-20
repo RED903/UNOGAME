@@ -143,13 +143,37 @@ function setupListeners() {
 // ─── 버튼 이벤트 ────────────────────────────────────
 
 function setupButtons() {
-  document.getElementById('btn-stay')?.addEventListener('click', () => playerAction('stay'));
-  document.getElementById('btn-fold')?.addEventListener('click', () => playerAction('fold'));
+  document.getElementById('btn-stay')?.addEventListener('click', handleStayClick);
+  document.getElementById('btn-fold')?.addEventListener('click', handleFoldClick);
   document.getElementById('btn-snap')?.addEventListener('click', () => playerAction('snap'));
-  document.getElementById('btn-snap-call')?.addEventListener('click', () => snapResponse('call'));
-  document.getElementById('btn-snap-fold')?.addEventListener('click', () => snapResponse('fold'));
   document.getElementById('btn-next-round')?.addEventListener('click', handleNextRound);
   document.getElementById('btn-leave')?.addEventListener('click', handleLeave);
+}
+
+function handleStayClick() {
+  if (!gs || gs.finished) return;
+  const isFolded  = gs.folded?.[myPlayerId];
+  const snapPend  = gs.snapPending;
+  const iNeedResp = snapPend && gs.snapTriggerPid !== myPlayerId && !isFolded && !gs.snapResponses?.[myPlayerId];
+
+  if (iNeedResp) {
+    snapResponse('call');
+  } else {
+    playerAction('stay');
+  }
+}
+
+function handleFoldClick() {
+  if (!gs || gs.finished) return;
+  const isFolded  = gs.folded?.[myPlayerId];
+  const snapPend  = gs.snapPending;
+  const iNeedResp = snapPend && gs.snapTriggerPid !== myPlayerId && !isFolded && !gs.snapResponses?.[myPlayerId];
+
+  if (iNeedResp) {
+    snapResponse('fold');
+  } else {
+    playerAction('fold');
+  }
 }
 
 // ─── 새 라운드 시작 (호스트만) ──────────────────────
@@ -965,7 +989,6 @@ function renderActionButtons() {
 
   // 버튼 그룹 표시/숨김
   const normalActions = document.getElementById('normal-actions');
-  const snapActions   = document.getElementById('snap-actions');
   const nextBtn       = document.getElementById('btn-next-round');
   const infoEl        = document.getElementById('action-info');
 
@@ -980,75 +1003,80 @@ function renderActionButtons() {
     // 내 차례가 아니거나, 다른 사람이 스냅을 친 응답 대기 상태라면 모든 일반 액션 버튼 비활성화
     const disabledState = !(isMyTurn && !snapPend);
     const mySnapped = gs.playerSnapped?.[myPlayerId];
-    const isSnapDisabled = disabledState || mySnapped || !canSnap;
+    const isSnapDisabled = disabledState || mySnapped || !canSnap || snapPend;
 
-    // 콜 버튼 innerHTML로 강제 렌더링하여 괄호 칩 텍스트 완전 보장
+    // 1) 콜 / 스냅 콜 버튼 렌더링 (iNeedResp에 따라 둔갑)
     if (stayBtn) {
-      stayBtn.disabled = disabledState;
-      const currentAnte = gs.phaseAnte ?? 0;
-      stayBtn.innerHTML = `
-        <span class="btn-icon">✓</span>
-        <div class="btn-text-wrap">
-          <span class="btn-label" id="btn-stay-label">콜 (${currentAnte}칩)</span>
-          <span class="btn-sub" id="btn-stay-sub">생존 유지</span>
-        </div>
-      `;
+      if (iNeedResp) {
+        // 스냅 콜 응답 모드
+        const callCost = gs.snapCallCost ?? 0;
+        const myChips  = gs.chipCounts?.[myPlayerId] ?? 0;
+        const canAfford = myChips >= callCost;
+        
+        stayBtn.disabled = !canAfford;
+        stayBtn.innerHTML = `
+          <span class="btn-icon">📞</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label" id="btn-stay-label">${canAfford ? `스냅 콜 (${callCost}칩)` : `콜 불가 (${callCost}칩)`}</span>
+            <span class="btn-sub" id="btn-stay-sub">칩 지불하고 잔류</span>
+          </div>
+        `;
+      } else {
+        // 일반 콜 모드
+        stayBtn.disabled = disabledState;
+        const currentAnte = gs.phaseAnte ?? 0;
+        stayBtn.innerHTML = `
+          <span class="btn-icon">✓</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label" id="btn-stay-label">콜 (${currentAnte}칩)</span>
+            <span class="btn-sub" id="btn-stay-sub">생존 유지</span>
+          </div>
+        `;
+      }
     }
 
-    // 죽기 버튼 innerHTML 렌더링 일관성 유지
+    // 2) 죽기 / 런 버튼 렌더링
     if (foldBtn) {
-      foldBtn.disabled = disabledState;
-      foldBtn.innerHTML = `
-        <span class="btn-icon">✕</span>
-        <div class="btn-text-wrap">
-          <span class="btn-label">죽기</span>
-          <span class="btn-sub">기권</span>
-        </div>
-      `;
+      if (iNeedResp) {
+        // 스냅 런(기권) 모드
+        foldBtn.disabled = false; // 런은 언제나 가능
+        foldBtn.innerHTML = `
+          <span class="btn-icon">🏃</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label">런 (기권)</span>
+            <span class="btn-sub">탈출</span>
+          </div>
+        `;
+      } else {
+        // 일반 죽기 모드
+        foldBtn.disabled = disabledState;
+        foldBtn.innerHTML = `
+          <span class="btn-icon">✕</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label">죽기</span>
+            <span class="btn-sub">기권</span>
+          </div>
+        `;
+      }
     }
 
-    // 판돈 2배 (스냅) 버튼 디자인 및 1인당 1회 룰/글로벌 캡 반영
+    // 3) 판돈 2배 (스냅) 버튼 디자인 및 비용 고정 (횟수나 제한 안내 완전 제거)
     if (snapBtn) {
       snapBtn.disabled = isSnapDisabled;
       snapBtn.style.opacity = isSnapDisabled ? '0.35' : '1';
 
       const extraCost = (gs.phaseAnte ?? 0) * 2;
-      let snapLabelStr = '판돈 2배';
-      let snapSubStr = `(추가 ${extraCost}칩)`;
-
-      if (mySnapped) {
-        snapLabelStr = '판돈 2배';
-        snapSubStr = '스냅 완료 (1회 제한)';
-      } else if (!canSnap) {
-        snapLabelStr = '판돈 2배';
-        snapSubStr = '스냅 한도 도달';
-      }
-
       snapBtn.innerHTML = `
         <span class="btn-icon">⚡</span>
         <div class="btn-text-wrap">
-          <span class="btn-label">${snapLabelStr}</span>
-          <span class="btn-sub">${snapSubStr}</span>
+          <span class="btn-label">판돈 2배</span>
+          <span class="btn-sub">(추가 ${extraCost}칩)</span>
         </div>
       `;
     }
   }
 
-  if (snapActions)   snapActions.style.display   = iNeedResp ? 'flex' : 'none';
-  if (nextBtn)       nextBtn.style.display       = (isHost && isFinished) ? 'inline-flex' : 'none';
-
-  // 스냅콜 비용 표시
-  const callCostEl = document.getElementById('snap-call-cost');
-  if (callCostEl) callCostEl.textContent = gs.snapCallCost ?? 0;
-
-  const myChips  = gs.chipCounts?.[myPlayerId] ?? 0;
-  const callCost = gs.snapCallCost ?? 0;
-  const snapCallBtn = document.getElementById('btn-snap-call');
-  if (snapCallBtn) {
-    const canAfford = myChips >= callCost;
-    snapCallBtn.disabled = !canAfford;
-    snapCallBtn.textContent = canAfford ? `📞 스냅 콜 (${callCost}칩)` : `📞 콜 불가 (${callCost}칩 필요)`;
-  }
+  if (nextBtn) nextBtn.style.display = (isHost && isFinished) ? 'inline-flex' : 'none';
 
   // 정보 메시지
   if (infoEl) {

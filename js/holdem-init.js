@@ -26,11 +26,20 @@ export function getMaxSnaps(n) {
   return n <= 4 ? 2 : 3;
 }
 
+function asArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') {
+    return Object.keys(val).sort((a, b) => Number(a) - Number(b)).map(k => val[k]);
+  }
+  return [];
+}
+
 /** UNO 등 다른 게임의 gameState와 구분 */
 export function isHoldemGameState(gs) {
   if (!gs || typeof gs !== 'object') return false;
   if (!gs.phase || !HOLDEM_PHASES.has(gs.phase)) return false;
-  return Array.isArray(gs.playerOrder) && gs.chipCounts && typeof gs.chipCounts === 'object';
+  return asArray(gs.playerOrder).length > 0 && gs.chipCounts && typeof gs.chipCounts === 'object';
 }
 
 /** 호스트가 새 라운드를 자동 시작해야 하는지 (종료 후 재시작은 '다음 라운드' 버튼) */

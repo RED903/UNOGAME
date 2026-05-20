@@ -149,26 +149,26 @@
   50% { filter: drop-shadow(0 0 14px rgba(255,255,255,0.6)); }
 }
 
-/* ─── 오른쪽 사이드바 - 게임 정보 ─────────────── */
+/* ─── 오른쪽 사이드바 - UNO 액션 ─────────────── */
 .game-info-sidebar {
   grid-column: 3;
   grid-row: 2;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 14px 12px;
   background: rgba(0,0,0,0.3);
   border-left: 1px solid rgba(255,255,255,0.06);
 }
 
-.info-panel {
-  padding: 12px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
+.sidebar-uno-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
 }
-.info-panel-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--uno-muted); margin-bottom: 8px; }
-.info-panel-value { font-size: 1.1rem; font-weight: 700; }
 
 /* 현재 색상 표시 */
 #current-color {
@@ -334,6 +334,7 @@
   width: 100%;
   justify-content: center;
   flex-wrap: wrap;
+  padding-bottom: 2px;
 }
 
 .hand-info { font-size: 0.82rem; color: var(--uno-muted); font-weight: 600; }
@@ -400,11 +401,12 @@
 }
 
 
-/* ─── 게임 액션 버튼 레이아웃 ─────────────────── */
+/* ─── 게임 액션 버튼 레이아웃 (손패: 뽑기만) ─── */
 .game-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* ─── UNO 통합 버튼 (선언 / 잡기 동적 전환) ───── */
@@ -413,24 +415,41 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 1.0rem;
+  width: 100%;
+  min-height: 56px;
+  font-size: 1.05rem;
   font-weight: 900;
-  padding: 10px 22px;
+  padding: 12px 16px;
   border: none;
-  border-radius: 50px;
+  border-radius: 14px;
   cursor: pointer;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   transition: all 0.2s;
   font-family: inherit;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
 }
 
 /* UNO 선언 모드, 잡기 모드, 평소 상태를 모두 단일 스타일로 통합 */
-#btn-uno.btn-uno-call,
-#btn-uno.btn-uno-catch,
-#btn-uno.btn-uno-disabled {
+#btn-uno.btn-uno-call {
   background: linear-gradient(135deg, #FFD900, #FF8C00);
   color: #1A0000;
   box-shadow: 0 4px 20px rgba(255,210,0,0.6);
+  animation: unoPulse 1.2s ease-in-out infinite;
+}
+
+#btn-uno.btn-uno-catch {
+  background: linear-gradient(135deg, #FF5252, #D50000);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(255,23,68,0.55);
+  animation: catchPulse 0.8s ease-in-out infinite alternate;
+}
+
+#btn-uno.btn-uno-disabled {
+  background: linear-gradient(135deg, #FFD900, #FF8C00);
+  color: #1A0000;
+  box-shadow: 0 4px 16px rgba(255,210,0,0.35);
   opacity: 1;
   cursor: pointer;
   border: none;
@@ -681,7 +700,27 @@ body.my-turn .game-table::after {
     grid-template-columns: 160px 1fr;
     grid-template-rows: 50px 1fr auto;
   }
-  .game-info-sidebar { display: none; }
+  .game-info-sidebar {
+    position: fixed;
+    top: 52px;
+    right: 10px;
+    left: auto;
+    z-index: 55;
+    width: auto;
+    min-width: 128px;
+    max-width: 148px;
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.82);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+
+  #btn-uno {
+    min-height: 48px;
+    font-size: 0.9rem;
+    padding: 10px 12px;
+  }
 
   .card-piles { gap: 18px; }
 
@@ -708,8 +747,19 @@ body.my-turn .game-table::after {
   .game-header-logo { font-size: 1rem; letter-spacing: 1px; }
   .game-header-room { font-size: 0.7rem; }
 
-  /* 오른쪽 사이드바 숨김 */
-  .game-info-sidebar { display: none; }
+  .game-info-sidebar {
+    top: 46px;
+    right: 6px;
+    min-width: 118px;
+    max-width: 132px;
+    padding: 8px;
+  }
+
+  #btn-uno {
+    min-height: 44px;
+    font-size: 0.82rem !important;
+    padding: 8px 10px !important;
+  }
 
   /* 플레이어 사이드바 → 중앙 위에 수평 오버레이로 변환 */
   .players-sidebar {
@@ -833,11 +883,6 @@ body.my-turn .game-table::after {
   #btn-draw {
     padding: 6px 12px !important;
     font-size: 0.76rem !important;
-  }
-
-  #btn-uno {
-    font-size: 0.82rem !important;
-    padding: 8px 14px !important;
   }
 
   .emote-toggle-btn {

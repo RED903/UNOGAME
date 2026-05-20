@@ -889,17 +889,14 @@ function checkUnoStatus() {
   unoBtn.style.cursor = 'pointer';
 
   if (canCall) {
-    // 내 UNO 선언 모드
     unoBtn.textContent = '🔔 UNO!';
     unoBtn.className = 'btn-uno-call';
     unoBtn.setAttribute('title', '지금 UNO를 외치세요! 안 외치면 패널티!');
   } else if (catchTarget) {
-    // 잡기 모드
     unoBtn.textContent = '🚨 UNO 잡기!';
     unoBtn.className = 'btn-uno-catch';
     unoBtn.setAttribute('title', 'UNO를 외치지 않은 상대를 잡으세요!');
   } else {
-    // 평소 모드 (상시 클릭 가능하며 동일한 골드 스타일 유지)
     unoBtn.textContent = '🔔 UNO';
     unoBtn.className = 'btn-uno-disabled';
     unoBtn.setAttribute('title', 'UNO를 외칠 상황은 아니지만 클릭해 볼 수 있습니다.');

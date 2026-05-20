@@ -243,7 +243,7 @@ function getSnapCallsUsed(state, pid) {
 }
 
 function getMaxSnapCallsLimit(state) {
-  return state.maxSnapCallsPerPlayer ?? state.maxSnaps ?? 3;
+  return state.maxSnapCallsPerPlayer ?? 1;
 }
 
 /** 이번 스냅(판돈 2배)에 아직 스냅콜로 수락하지 않았을 때만 */
@@ -340,7 +340,7 @@ async function playerAction(action) {
     if (!needsSnapCall(gs, myPlayerId)) {
       const max = getMaxSnapCallsLimit(gs);
       if ((gs.snapCount ?? 0) > 0 && getSnapCallsUsed(gs, myPlayerId) >= max) {
-        showFloatMsg(`이번 판 스냅콜은 ${max}회까지입니다. 콜을 사용하세요.`);
+        showFloatMsg('이번 판 스냅콜은 1회만 가능합니다. 콜을 사용하세요.');
       } else {
         showFloatMsg('지금은 스냅콜이 필요하지 않습니다.');
       }
@@ -1002,8 +1002,9 @@ function renderSnapInfo() {
     const snapUsed = gs.snapCount ?? 0;
     const maxCall = getMaxSnapCallsLimit(gs);
     const myCallUsed = getSnapCallsUsed(gs, myPlayerId);
+    const snapCallLeft = maxCall - myCallUsed;
     remainEl.textContent = preview
-      ? `남은 단계: ${preview} · 스냅 ${maxSnap - snapUsed}회 · 내 스냅콜 ${maxCall - myCallUsed}회`
+      ? `남은 단계: ${preview} · 판 스냅 ${maxSnap - snapUsed}/${maxSnap} · 내 스냅콜 ${snapCallLeft > 0 ? '가능' : '사용함'}`
       : '';
   }
 }
@@ -1054,7 +1055,7 @@ function renderActionButtons() {
           ? `스냅콜 ${snapOwed}칩`
           : `칩 부족 (${snapOwed}칩)`;
       }
-      if (snapSub) snapSub.textContent = `인상 수락 (남은 ${callLeft}회)`;
+      if (snapSub) snapSub.textContent = callLeft > 0 ? '인상 수락 (이번 판 1회)' : '사용함';
     }
 
     if (stayBtn) {

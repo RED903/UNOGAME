@@ -8,7 +8,9 @@ import {
 } from './firebase-config.js';
 import { createDeck, shuffleDeck, determineWinners } from './holdem-rules.js';
 import { renderPokerCardSVG, renderCardBack } from './holdem-renderer.js';
-import { shouldStartHoldemRound, startHoldemRound, calcPhaseBet, getPhaseBaseAnte } from './holdem-init.js';
+import {
+  shouldStartHoldemRound, startHoldemRound, calcPhaseBet, getPhaseBaseAnte
+} from './holdem-init.js';
 
 // ─── 상수 ──────────────────────────────────────────
 
@@ -235,14 +237,27 @@ function setupButtons() {
   document.getElementById('btn-leave')?.addEventListener('click', handleLeave);
 }
 
-/** 스냅 이후 추가 배팅(스냅콜)이 필요한지 */
-function needsSnapCall(state, pid) {
-  return (state.snapCount ?? 0) > 0 && getBetOwed(state, pid) > 0;
+function getSnapCallsUsed(state, pid) {
+  const raw = state.snapCallCount?.[pid];
+  return typeof raw === 'number' ? raw : 0;
 }
 
-/** 스냅 전 일반 콜이 필요한지 */
+function getMaxSnapCallsLimit(state) {
+  return state.maxSnapCallsPerPlayer ?? state.maxSnaps ?? 3;
+}
+
+/** 이번 스냅(판돈 2배)에 아직 스냅콜로 수락하지 않았을 때만 */
+function needsSnapCall(state, pid) {
+  if (getBetOwed(state, pid) <= 0) return false;
+  if (getSnapCallsUsed(state, pid) >= getMaxSnapCallsLimit(state)) return false;
+  const respondedAt = state.snapCallAtCount?.[pid] ?? 0;
+  return (state.snapCount ?? 0) > respondedAt;
+}
+
+/** 일반 콜: 스냅 전, 또는 이미 스냅콜로 이번 스냅을 수락한 뒤 */
 function canRegularCall(state, pid) {
-  return (state.snapCount ?? 0) === 0 && getBetOwed(state, pid) > 0;
+  if (getBetOwed(state, pid) <= 0) return false;
+  return !needsSnapCall(state, pid);
 }
 
 function handleFoldClick() {
@@ -303,7 +318,7 @@ async function playerAction(action) {
 
   } else if (action === 'stay') {
     if (!canRegularCall(gs, myPlayerId)) {
-      showFloatMsg('지금은 콜이 아닌 스냅콜이 필요합니다.');
+      showFloatMsg('지금은 스냅콜로 인상분을 먼저 맞춰야 합니다.');
       return;
     }
     const betCost = getBetOwed(gs, myPlayerId);
@@ -323,7 +338,12 @@ async function playerAction(action) {
 
   } else if (action === 'snapCall') {
     if (!needsSnapCall(gs, myPlayerId)) {
-      showFloatMsg('지금은 스냅콜이 필요하지 않습니다.');
+      const max = getMaxSnapCallsLimit(gs);
+      if ((gs.snapCount ?? 0) > 0 && getSnapCallsUsed(gs, myPlayerId) >= max) {
+        showFloatMsg(`이번 판 스냅콜은 ${max}회까지입니다. 콜을 사용하세요.`);
+      } else {
+        showFloatMsg('지금은 스냅콜이 필요하지 않습니다.');
+      }
       return;
     }
     const betCost = getBetOwed(gs, myPlayerId);
@@ -337,6 +357,10 @@ async function playerAction(action) {
     updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
     updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
       (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
+    updates[`rooms/${myRoomCode}/gameState/snapCallCount/${myPlayerId}`] =
+      getSnapCallsUsed(gs, myPlayerId) + 1;
+    updates[`rooms/${myRoomCode}/gameState/snapCallAtCount/${myPlayerId}`] =
+      gs.snapCount ?? 0;
     updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] =
       gs.phaseActed?.[myPlayerId] || 'stay';
     logAction.type = 'snapCall';
@@ -532,6 +556,12 @@ async function executeBotAction(curGs, botId) {
         gs2.phaseActed?.[botId] || 'stay';
       logAction.type = action === 'snapCall' ? 'snapCall' : 'stay';
       logAction.amount = betCost;
+      if (action === 'snapCall') {
+        updates[`rooms/${myRoomCode}/gameState/snapCallCount/${botId}`] =
+          getSnapCallsUsed(gs2, botId) + 1;
+        updates[`rooms/${myRoomCode}/gameState/snapCallAtCount/${botId}`] =
+          gs2.snapCount ?? 0;
+      }
     }
     updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
     updates[`rooms/${myRoomCode}/gameState/pot`] = pot;
@@ -968,9 +998,13 @@ function renderSnapInfo() {
 
   const remainEl = document.getElementById('snap-remain');
   if (remainEl) {
-    const max = gs.maxSnaps ?? 3;
-    const count = gs.snapCount ?? 0;
-    remainEl.textContent = preview ? `남은 단계: ${preview} · 2배 ${max - count}회` : '';
+    const maxSnap = gs.maxSnaps ?? 3;
+    const snapUsed = gs.snapCount ?? 0;
+    const maxCall = getMaxSnapCallsLimit(gs);
+    const myCallUsed = getSnapCallsUsed(gs, myPlayerId);
+    remainEl.textContent = preview
+      ? `남은 단계: ${preview} · 스냅 ${maxSnap - snapUsed}회 · 내 스냅콜 ${maxCall - myCallUsed}회`
+      : '';
   }
 }
 
@@ -1009,6 +1043,8 @@ function renderActionButtons() {
     if (snapCallBtn) {
       const snapOwed = showSnapCall ? owed : 0;
       const canAffordSnap = snapOwed > 0 && myChips >= snapOwed;
+      const maxCall = getMaxSnapCallsLimit(gs);
+      const callLeft = maxCall - getSnapCallsUsed(gs, myPlayerId);
       snapCallBtn.style.display = showSnapCall ? 'flex' : 'none';
       snapCallBtn.disabled = !canAct || !canAffordSnap;
       const snapLabel = document.getElementById('btn-snap-call-label');
@@ -1018,7 +1054,7 @@ function renderActionButtons() {
           ? `스냅콜 ${snapOwed}칩`
           : `칩 부족 (${snapOwed}칩)`;
       }
-      if (snapSub) snapSub.textContent = '판돈 2배 수락';
+      if (snapSub) snapSub.textContent = `인상 수락 (남은 ${callLeft}회)`;
     }
 
     if (stayBtn) {
@@ -1052,8 +1088,8 @@ function renderActionButtons() {
       snapBtn.innerHTML = `
         <span class="btn-icon">⚡</span>
         <div class="btn-text-wrap">
-          <span class="btn-label">판돈 2배</span>
-          <span class="btn-sub">${snapPay}칩 내고 ×${nextMult}</span>
+          <span class="btn-label">스냅</span>
+          <span class="btn-sub">판돈 2배 · ${snapPay}칩</span>
         </div>
       `;
     }
@@ -1075,11 +1111,11 @@ function renderActionButtons() {
       const mult = gs.snapMultiplier ?? 1;
       const ante = gs.phaseAnte ?? calcPhaseBet(gs.phase, mult);
       if (showSnapCall) {
-        infoEl.textContent = `통과 ${ante}칩 — 스냅콜 ${owed}칩 또는 런`;
+        infoEl.textContent = `스냅 인상분 ${owed}칩 — 스냅콜(1회) 또는 런`;
       } else if (showCall) {
-        infoEl.textContent = `이번 단계 ${ante}칩 — 콜 / 판돈 2배 / 죽기`;
+        infoEl.textContent = `콜 ${owed}칩 · 스냅 / 죽기`;
       } else {
-        infoEl.textContent = `이번 단계 ${ante}칩 · 판돈 2배 / 죽기`;
+        infoEl.textContent = `이번 단계 ${ante}칩 · 스냅 / 죽기`;
       }
     }
   }
@@ -1167,7 +1203,7 @@ function appendLogIfNew(action) {
   if (!log) return;
 
   const icons = { stay:'💰', fold:'✕', snap:'⚡', snapCall:'💰', win:'🏆', deal:'🃏' };
-  const labels = { stay:'배팅', fold:'기권', snap:'판돈 2배', snapCall:'추가 배팅', win:'승리!', deal:'딜' };
+  const labels = { stay:'콜', fold:'기권', snap:'스냅', snapCall:'스냅콜', win:'승리!', deal:'딜' };
   const cls = { stay:'action-check', fold:'action-fold', snap:'action-raise', snapCall:'action-call', win:'action-win', deal:'action-deal' };
 
   const icon  = icons[action.type]  || '•';

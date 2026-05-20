@@ -242,8 +242,24 @@ function renderGameState() {
   // UNO 버튼 상태 업데이트
   checkUnoStatus();
 
-  // UNO 패널티 대상이 나면 처리
+  // UNO 패널티 처리 (나이거나 봇 대행)
   handleUnoPenaltyIfTarget();
+
+  // 봇들의 우노 타이머 실시간 동적 청소 (1장이 아니게 되었거나 이미 우노를 외친 봇의 타이머 파괴)
+  if (isHost && gameState && gameState.handCounts) {
+    for (const [pid, count] of Object.entries(gameState.handCounts)) {
+      if (pid.startsWith('bot_')) {
+        // 1장이 아니게 되었거나, 누군가에 의해 잡혔거나, 이미 우노를 외쳤다면 대기 중인 타이머 취소
+        if (count !== 1 || gameState.unoCalledBy === pid || gameState.unoPenaltyTarget === pid) {
+          if (botUnoTimersMap[pid]) {
+            clearTimeout(botUnoTimersMap[pid]);
+            delete botUnoTimersMap[pid];
+            console.log(`[봇 우노 타이머 취소] ${pid} - 손패수: ${count}, unoCalled: ${gameState.unoCalledBy}`);
+          }
+        }
+      }
+    }
+  }
 
   // [★ 봇 우노잡기 AI 엔진] 누군가 1장이 되었는데 우노를 안 외쳤다면 봇들이 랜덤 확률/딜레이로 우노잡기를 시도
   if (isHost) {
@@ -874,12 +890,18 @@ function checkUnoStatus() {
 
 /**
  * UNO 패널티 처리 (Firebase에서 unoPenaltyTarget 감지 시)
- * 패널티 대상 플레이어가 직접 카드를 뽑아 저장
+ * 패널티 대상 플레이어(유저) 본인이 직접 카드를 뽑아 저장하거나,
+ * 봇이 대상인 경우 방장(Host)이 대행하여 카드를 드로우하고 저장
  */
 async function handleUnoPenaltyIfTarget() {
   if (isHandlingPenalty) return;
   if (!gameState?.unoPenaltyTarget) return;
-  if (gameState.unoPenaltyTarget !== myPlayerId) return;
+
+  const targetId = gameState.unoPenaltyTarget;
+  const isTargetBot = targetId.startsWith('bot_');
+
+  // 나 자신도 아니고, 봇인데 방장도 아니라면 패널티 처리 권한 없음
+  if (targetId !== myPlayerId && (!isTargetBot || !isHost)) return;
 
   const penaltyTs = gameState.unoPenaltyTimestamp || 0;
   // 이미 이 타임스탬프의 패널티를 수령 완료했다면 조기 중단 (중복 드로우 차단)
@@ -905,21 +927,47 @@ async function handleUnoPenaltyIfTarget() {
       if (deck.length > 0) drawn.push(deck.shift());
     }
 
-    const newHand = [...myHand, ...drawn];
+    let currentHand = [];
+    if (targetId === myPlayerId) {
+      currentHand = [...myHand];
+    } else {
+      // 봇인 경우 Firebase에서 직접 손패를 가져옴
+      const handSnap = await get(ref(database, `rooms/${myRoomCode}/hands/${targetId}`));
+      if (handSnap.exists()) {
+        const val = handSnap.val();
+        currentHand = Array.isArray(val) ? val : Object.values(val || {});
+      }
+    }
+
+    const newHand = [...currentHand, ...drawn];
     const handCounts = { ...(gameState.handCounts || {}) };
-    handCounts[myPlayerId] = newHand.length;
+    handCounts[targetId] = newHand.length;
 
     // unoPenaltyTarget, unoPenaltyTimestamp 클리어 + 손패 업데이트
-    await update(ref(database), {
-      [`rooms/${myRoomCode}/hands/${myPlayerId}`]: newHand,
+    const updates = {
+      [`rooms/${myRoomCode}/hands/${targetId}`]: newHand,
       [`rooms/${myRoomCode}/gameState/deck`]: deck,
       [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
       [`rooms/${myRoomCode}/gameState/unoPenaltyTarget`]: null,
       [`rooms/${myRoomCode}/gameState/unoPenaltyTimestamp`]: null
-    });
+    };
 
-    showFloatMsg('패널티! 카드 2장을 받았습니다 😱', 2000);
-    playDrawPenalty();
+    // 만약 봇이 패널티를 받아 2장 이상이 되었다면, 기존 봇의 우노 외침 완료 상태를 제거해 주어야 함
+    if (gameState.unoCalledBy === targetId) {
+      updates[`rooms/${myRoomCode}/gameState/unoCalledBy`] = null;
+      updates[`rooms/${myRoomCode}/gameState/unoTimestamp`] = null;
+    }
+
+    await update(ref(database), updates);
+
+    if (targetId === myPlayerId) {
+      showFloatMsg('패널티! 카드 2장을 받았습니다 😱', 2000);
+      playDrawPenalty();
+    } else {
+      const botName = roomPlayersCache[targetId]?.name || '컴퓨터 봇';
+      showFloatMsg(`⚠️ [패널티] ${botName}가 카드를 2장 드로우했습니다!`, 3000);
+      playDrawPenalty();
+    }
   } catch (error) {
     console.error("UNO 패널티 처리 중 오류 발생:", error);
   } finally {
@@ -1426,7 +1474,7 @@ function showFloatMsg(text, duration = 1500) {
 
 // ─── [★ AI 컴퓨터 플레이어 대행 엔진] ────────────────
 let activeBotThinkings = {}; // 봇 작동 상태 중복 방지 맵
-let botUnoTimer = null;      // 봇 우노 타이밍용 타이머
+let botUnoTimersMap = {};    // 봇별 우노 타이머 보관용 맵 { [botId]: timerId }
 let botUnoCatchTimer = null; // 봇 우노잡기용 타이머
 
 /** 봇들의 우노잡기 AI 연산 */
@@ -1675,15 +1723,18 @@ async function executeBotAction(botId) {
   }
 
   // 5) [🔔 중요: 봇의 우노(UNO) 타이밍 설계]
-  // 봇의 손패가 정확히 1장이 될 때, 봇은 0.9초 뒤에 스스로 '우노!'를 외치게 타이머를 작동합니다.
-  // 이 0.9초 이내에 유저가 재빨리 '우노 잡기!' 버튼을 누르면 봇의 우노가 잡힙니다!
-  if (newHand.length === 1 && !hasWon) {
-    // 이전 타이머 정리
-    if (botUnoTimer) clearTimeout(botUnoTimer);
+  // 봇의 손패가 2장에서 정확히 1장이 되는 순간(즉, 카드를 낼 때만), 봇은 스스로 '우노!'를 외치게 타이머를 작동합니다.
+  // 이 시간 윈도우 이내에 유저가 재빨리 '우노 잡기!' 버튼을 누르면 봇의 우노가 잡힙니다!
+  if (botHand.length === 2 && newHand.length === 1 && !hasWon) {
+    // 이전 이 봇의 예약된 타이머 정리
+    if (botUnoTimersMap[botId]) {
+      clearTimeout(botUnoTimersMap[botId]);
+      delete botUnoTimersMap[botId];
+    }
 
     // 0.7초 ~ 1.3초 뒤 봇의 우노 자동 등록 (무작위 지연 적용)
     const unoDelay = 700 + Math.random() * 600;
-    botUnoTimer = setTimeout(async () => {
+    botUnoTimersMap[botId] = setTimeout(async () => {
       // 그 사이에 다른 사람에게 잡히지 않고, 봇이 여전히 1장 손패를 들고 있다면
       const currentSnap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
       if (!currentSnap.exists()) return;
@@ -1721,6 +1772,9 @@ async function executeBotAction(botId) {
           console.error("[봇 우노 선언] 트랜잭션 에러:", err);
         }
       }
+      
+      // 타이머 완료 후 맵에서 제거
+      delete botUnoTimersMap[botId];
     }, unoDelay); // 유저가 잡을 수 있는 시간차 (0.7~1.3초 랜덤)
   }
 

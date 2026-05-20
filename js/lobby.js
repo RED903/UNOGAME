@@ -7,6 +7,7 @@ import {
   database, ref, set, get, push, onValue, update, remove, off, serverTimestamp
 } from './firebase-config.js';
 import { playJoinRoom, playError } from './sound.js';
+import { startHoldemRound } from './holdem-init.js';
 
 // 현재 플레이어 상태
 let myPlayerId = null;
@@ -243,7 +244,8 @@ async function handleStartGame() {
   if (!snapshot.exists()) return;
 
   const room = snapshot.val();
-  const playerIds = Object.keys(room.players || {});
+  const gameType = room.gameType || 'uno';
+  let playerIds = Object.keys(room.players || {});
 
   // 만약 방에 방장 혼자만 있다면 컴퓨터(봇)를 인원수에 맞춰서 자동 투입
   if (playerIds.length === 1) {
@@ -275,9 +277,31 @@ async function handleStartGame() {
     
     showToast('컴퓨터 플레이어가 참가했습니다! 봇전을 시작합니다.', 2000);
     await update(ref(database), updates);
+
+    const refreshed = await get(ref(database, `rooms/${myRoomCode}`));
+    if (refreshed.exists()) {
+      room.players = refreshed.val().players || room.players;
+      playerIds = Object.keys(room.players);
+    }
   }
 
-  // 방 상태를 'playing'으로 변경 → 모든 클라이언트가 game.html로 이동
+  // 홀덤: UNO 잔여 데이터 제거 후 첫 라운드 즉시 시작 (페이지 이동 전)
+  if (gameType === 'holdem') {
+    await remove(ref(database, `rooms/${myRoomCode}/hands`));
+    await remove(ref(database, `rooms/${myRoomCode}/gameState`));
+
+    const latestSnap = await get(ref(database, `rooms/${myRoomCode}`));
+    if (latestSnap.exists()) {
+      const latestRoom = latestSnap.val();
+      const ok = await startHoldemRound(myRoomCode, latestRoom);
+      if (!ok) {
+        showToast('플레이어가 부족합니다. 잠시 후 다시 시도해주세요.', 2500);
+        return;
+      }
+    }
+  }
+
+  // 방 상태를 'playing'으로 변경 → gameType에 맞는 게임 화면으로 이동
   await update(ref(database, `rooms/${myRoomCode}`), {
     status: 'playing',
     startedAt: serverTimestamp()

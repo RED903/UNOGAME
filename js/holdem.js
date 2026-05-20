@@ -8,21 +8,13 @@ import {
 } from './firebase-config.js';
 import { createDeck, shuffleDeck, determineWinners } from './holdem-rules.js';
 import { renderPokerCardSVG, renderCardBack } from './holdem-renderer.js';
+import { shouldStartHoldemRound, startHoldemRound } from './holdem-init.js';
 
 // ─── 상수 ──────────────────────────────────────────
 
 const PHASE_ORDER  = ['preflop', 'flop', 'turn', 'river'];
 const PHASE_ANTES  = { preflop: 1, flop: 2, turn: 4, river: 8 };
 const PHASE_NAMES  = { preflop: '프리플랍', flop: '플랍', turn: '턴', river: '리버', showdown: '쇼다운' };
-
-function getStartingChips(n) {
-  if (n <= 4) return 250;
-  if (n <= 7) return 500;
-  return 750;
-}
-function getMaxSnaps(n) {
-  return n <= 4 ? 2 : 3;
-}
 
 // ─── 상태 변수 ─────────────────────────────────────
 
@@ -34,6 +26,7 @@ let myHoleCards   = [];
 let roomPlayersCache = {};
 const unsubList   = [];
 let hostTimer     = null;
+let startRetryTimer = null;
 let prevCommLen   = 0;      // 이전에 표시된 커뮤니티 카드 수
 let lastLogTs     = 0;
 
@@ -99,8 +92,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   if (isHost) {
     const existingGs = (await get(ref(database, `rooms/${myRoomCode}/gameState`))).val();
-    if (!existingGs || !existingGs.phase || existingGs.phase === 'waiting') {
-      setTimeout(() => startNewRound(), 1200);
+    if (shouldStartHoldemRound(existingGs)) {
+      scheduleStartNewRound(400);
     }
   }
 });
@@ -108,10 +101,22 @@ window.addEventListener('DOMContentLoaded', async () => {
 // ─── Firebase 리스닝 ─────────────────────────────────
 
 function setupListeners() {
+  const roomRef = ref(database, `rooms/${myRoomCode}`);
+  const u0 = onValue(roomRef, snap => {
+    if (!snap.exists()) return;
+    roomPlayersCache = snap.val().players || {};
+    if (gs) renderOpponents();
+  });
+  unsubList.push(u0);
+
   // 게임 상태 리스닝
   const gsRef = ref(database, `rooms/${myRoomCode}/gameState`);
   const u1 = onValue(gsRef, snap => {
-    if (!snap.exists()) return;
+    if (!snap.exists()) {
+      gs = null;
+      if (isHost) scheduleStartNewRound(600);
+      return;
+    }
     gs = snap.val();
 
     const newLen = (gs.communityCards || []).length;
@@ -121,6 +126,11 @@ function setupListeners() {
     prevCommLen = newLen;
 
     appendLogIfNew(gs.lastAction);
+
+    if (isHost && shouldStartHoldemRound(gs)) {
+      scheduleStartNewRound(600);
+      return;
+    }
 
     if (isHost && gs && !gs.finished) {
       scheduleHostActions();
@@ -178,7 +188,13 @@ function handleFoldClick() {
 
 // ─── 새 라운드 시작 (호스트만) ──────────────────────
 
-async function startNewRound() {
+function scheduleStartNewRound(delayMs = 600) {
+  if (!isHost) return;
+  clearTimeout(startRetryTimer);
+  startRetryTimer = setTimeout(() => startNewRound(), delayMs);
+}
+
+async function startNewRound(force = false) {
   if (!isHost) return;
 
   const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
@@ -186,86 +202,17 @@ async function startNewRound() {
   const room = roomSnap.val();
   roomPlayersCache = room.players || {};
 
-  const prevGs = room.gameState || {};
-  const playerIds = Object.keys(roomPlayersCache);
-  if (playerIds.length < 2) return;
+  const existingGs = room.gameState || null;
+  if (!force && !shouldStartHoldemRound(existingGs)) return;
 
-  const n = playerIds.length;
-  const startChips = getStartingChips(n);
-  const maxSnaps   = getMaxSnaps(n);
-
-  // 칩 승계 (없으면 초기값, 0이하이면 리바이)
-  const prevChips = prevGs.chipCounts || {};
-  const chipCounts = {};
-  for (const pid of playerIds) {
-    chipCounts[pid] = (prevChips[pid] > 0) ? prevChips[pid] : startChips;
+  const started = await startHoldemRound(myRoomCode, room);
+  if (!started) {
+    scheduleStartNewRound(1500);
+    return;
   }
-
-  // 딜러 로테이션
-  const prevDealer = prevGs.dealerIndex ?? -1;
-  const dealerIndex = (prevDealer + 1) % playerIds.length;
-
-  // 덱 셔플 & 홀 카드 딜
-  const deck = shuffleDeck(createDeck());
-  const handUpdates = {};
-  const usedCardIds = [];
-  for (const pid of playerIds) {
-    const cards = [deck.shift(), deck.shift()];
-    handUpdates[`rooms/${myRoomCode}/hands/${pid}`] = cards;
-    usedCardIds.push(...cards.map(c => c.id));
-  }
-
-  // 프리플랍 ante 자동 징수
-  const phaseAnte = PHASE_ANTES.preflop;
-  let pot = 0;
-  for (const pid of playerIds) {
-    const pay = Math.min(phaseAnte, chipCounts[pid]);
-    chipCounts[pid] -= pay;
-    pot += pay;
-  }
-
-  // 액터 순서 (딜러 다음부터 순서대로)
-  const firstActorIdx = (dealerIndex + 1) % playerIds.length;
-  const actorOrder = [];
-  for (let i = 0; i < playerIds.length; i++) {
-    actorOrder.push(playerIds[(firstActorIdx + i) % playerIds.length]);
-  }
-
-  const newGs = {
-    phase: 'preflop',
-    playerOrder: playerIds,
-    actorOrder,
-    currentActor: actorOrder[0],
-    phaseActed: {},
-    chipCounts,
-    folded: {},
-    pot,
-    communityCards: [],
-    dealerIndex,
-    phaseAnte,
-    usedCardIds,
-    snapCount: 0,
-    maxSnaps,
-    playerSnapped: {},
-    snapMultiplier: 1,
-    snapPending: false,
-    snapCallCost: 0,
-    snapTriggerPid: null,
-    snapResponses: {},
-    phaseComplete: false,
-    finished: false,
-    winner: null,
-    winnerHand: null,
-    showdownData: null,
-    lastAction: { type: 'deal', playerName: '딜러', amount: phaseAnte, timestamp: Date.now() }
-  };
-
-  await update(ref(database), {
-    [`rooms/${myRoomCode}/gameState`]: newGs,
-    ...handUpdates
-  });
 
   prevCommLen = 0;
+  lastLogTs = 0;
 }
 
 // ─── 플레이어 액션 (살기/죽기/스냅) ────────────────
@@ -777,7 +724,7 @@ async function handleNextRound() {
   if (!isHost) return;
   document.getElementById('showdown-overlay')?.classList.remove('show');
   prevCommLen = 0;
-  await startNewRound();
+  await startNewRound(true);
 }
 
 // ─── 나가기 ──────────────────────────────────────────
@@ -786,6 +733,7 @@ async function handleLeave() {
   unsubList.forEach(u => { try { u(); } catch (e) {} });
   unsubList.length = 0;
   clearTimeout(hostTimer);
+  clearTimeout(startRetryTimer);
   try {
     const snap = await get(ref(database, `rooms/${myRoomCode}`));
     if (snap.exists()) {

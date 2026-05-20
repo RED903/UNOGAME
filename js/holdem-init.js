@@ -22,7 +22,13 @@ export function getStartingChips(n) {
   return 750;
 }
 
+/** 이번 판에서 판돈 2배(스냅) 가능 횟수 */
 export function getMaxSnaps(n) {
+  return n <= 4 ? 2 : 3;
+}
+
+/** 플레이어당 이번 판 스냅콜 가능 횟수 (인원수 기준) */
+export function getMaxSnapCallsPerPlayer(n) {
   return n <= 4 ? 2 : 3;
 }
 
@@ -62,6 +68,7 @@ export async function startHoldemRound(roomCode, room) {
   const n = playerIds.length;
   const startChips = getStartingChips(n);
   const maxSnaps = getMaxSnaps(n);
+  const maxSnapCallsPerPlayer = getMaxSnapCallsPerPlayer(n);
 
   const prevChips = prevGs.chipCounts || {};
   const chipCounts = {};
@@ -105,6 +112,9 @@ export async function startHoldemRound(roomCode, room) {
     usedCardIds,
     snapCount: 0,
     maxSnaps,
+    maxSnapCallsPerPlayer,
+    snapCallCount: {},
+    snapCallAtCount: {},
     playerSnapped: {},
     snapMultiplier: 1,
     snapPending: false,

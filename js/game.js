@@ -245,6 +245,11 @@ function renderGameState() {
   // UNO 패널티 대상이 나면 처리
   handleUnoPenaltyIfTarget();
 
+  // [★ 봇 우노잡기 AI 엔진] 누군가 1장이 되었는데 우노를 안 외쳤다면 봇들이 랜덤 확률/딜레이로 우노잡기를 시도
+  if (isHost) {
+    checkBotsUnoCatch();
+  }
+
   // [★ AI 대행 엔진] 봇 플레이어가 현재 차례이고 내가 방장(Host)인 경우 봇 턴 대행 연산 실행
   if (gameState.currentPlayer && gameState.currentPlayer.startsWith('bot_') && isHost) {
     triggerBotTurn(gameState.currentPlayer);
@@ -1357,11 +1362,107 @@ function showFloatMsg(text, duration = 1500) {
 // ─── [★ AI 컴퓨터 플레이어 대행 엔진] ────────────────
 let activeBotThinkings = {}; // 봇 작동 상태 중복 방지 맵
 let botUnoTimer = null;      // 봇 우노 타이밍용 타이머
+let botUnoCatchTimer = null; // 봇 우노잡기용 타이머
+
+/** 봇들의 우노잡기 AI 연산 */
+function checkBotsUnoCatch() {
+  if (!isHost || !gameState || gameState.finished) return;
+
+  // 봇 입장에서 잡을 수 있는 대상(손패가 1장이고 아직 우노를 안 외친 플레이어) 확인
+  const catchTarget = getCatchableTargetForBots();
+  if (!catchTarget) {
+    if (botUnoCatchTimer) {
+      clearTimeout(botUnoCatchTimer);
+      botUnoCatchTimer = null;
+    }
+    return;
+  }
+
+  // 이미 봇이 우노잡기 실행을 준비 중이라면 중복 타이머 방지
+  if (botUnoCatchTimer) return;
+
+  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.8초 ~ 1.8초로 랜덤)
+  // 유저가 이 사이에 먼저 우노 선언을 하거나, 유저가 먼저 우노잡기를 클릭하면 타이머는 무효화됩니다.
+  const catchDelay = 800 + Math.random() * 1000;
+
+  botUnoCatchTimer = setTimeout(async () => {
+    try {
+      // 타이머가 동작한 순간, 여전히 상대방이 1장이고 우노를 안 외쳤는지 DB 최신 상태 재조회
+      const snap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
+      if (!snap.exists()) return;
+      const curState = snap.val();
+
+      const handCounts = curState.handCounts || {};
+      const unoCalledBy = curState.unoCalledBy;
+
+      // 여전히 1장인 상태이고 우노가 선언되지 않았는지 체크
+      if (handCounts[catchTarget] === 1 && !unoCalledBy && !curState.finished) {
+        // 이 방에 있는 봇(컴퓨터) 리스트 가져오기 (단, 잡히는 대상이 봇인 경우 그 봇 자신은 잡기에서 제외)
+        const playersRef = ref(database, `rooms/${myRoomCode}/players`);
+        const pSnap = await get(playersRef);
+        if (!pSnap.exists()) return;
+        const players = pSnap.val();
+
+        const botIds = Object.keys(players).filter(id => id.startsWith('bot_') && id !== catchTarget);
+        if (botIds.length === 0) return;
+
+        // 살아있는 봇 중 하나가 랜덤하게 우노잡기를 선언한 것으로 처리
+        const luckyBotId = botIds[Math.floor(Math.random() * botIds.length)];
+        const botName = players[luckyBotId]?.name || '컴퓨터 봇';
+
+        showFloatMsg(`🚨 [우노잡기] 컴퓨터(${botName})가 먼저 잡았습니다! 패널티 +2장!`, 3000);
+        playDrawPenalty();
+
+        await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+          unoPenaltyTarget: catchTarget,
+          unoPenaltyTimestamp: Date.now(),
+          unoCalledBy: null,
+          unoTimestamp: null,
+          lastAction: {
+            type: 'uno_penalty',
+            playerName: botName,
+            targetPlayerId: catchTarget,
+            timestamp: Date.now()
+          }
+        });
+      }
+    } catch (e) {
+      console.error("[AI 우노잡기] 대행 처리 실패:", e);
+    } finally {
+      botUnoCatchTimer = null;
+    }
+  }, catchDelay);
+}
+
+/** 봇 시점에서의 우노잡기 타겟 검출 */
+function getCatchableTargetForBots() {
+  if (!gameState) return null;
+  const handCounts = gameState.handCounts || {};
+  const unoCalledBy = gameState.unoCalledBy;
+
+  for (const [pid, count] of Object.entries(handCounts)) {
+    // 손패가 1장이고 아직 우노를 성공적으로 외치지 않은 모든 플레이어가 잡기 후보 대상
+    if (count === 1 && pid !== unoCalledBy) {
+      return pid;
+    }
+  }
+  return null;
+}
 
 function triggerBotTurn(botId) {
-  // 이미 해당 봇의 연산이 진행 중이면 무시
-  if (activeBotThinkings[botId]) return;
-  activeBotThinkings[botId] = true;
+  if (!gameState) return;
+  const topCard = gameState.discardPile 
+    ? (Array.isArray(gameState.discardPile) 
+        ? gameState.discardPile[gameState.discardPile.length - 1] 
+        : Object.values(gameState.discardPile)[Object.values(gameState.discardPile).length - 1])
+    : null;
+  const topCardId = topCard ? topCard.id : 'no_card';
+  // 봇ID + 버린 더미 탑 카드의 ID + 마지막 액션 타임스탬프를 묶어서 고유 락 키 생성
+  const lockKey = `${botId}_${topCardId}_${gameState.lastAction?.timestamp || 0}`;
+
+  // 이미 해당 봇이 이 동일한 게임 상태(턴 및 버린 카드 상태)에서 연산 중이면 무시
+  if (activeBotThinkings[lockKey]) return;
+  activeBotThinkings[lockKey] = true;
 
   // 봇의 자연스러운 고민 시간 부여 (2.2초 ~ 4.0초로 느리고 불규칙하게 조절)
   const thinkDelay = 2200 + Math.random() * 1800;
@@ -1372,7 +1473,8 @@ function triggerBotTurn(botId) {
     } catch (e) {
       console.error(`[AI ${botId}] 행동 수행 중 에러:`, e);
     } finally {
-      delete activeBotThinkings[botId];
+      // 연산이 완료되거나 실패했을 때 락 해제
+      delete activeBotThinkings[lockKey];
     }
   }, thinkDelay);
 }

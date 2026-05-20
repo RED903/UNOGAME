@@ -911,3 +911,21 @@ body.my-turn .game-table::after {
   .game-table { padding-top: 72px; }
 }
 
+/* ─── 다크 모드 확장 프로그램의 강제 반전 방지 및 SVG 최적화 ─── */
+svg, 
+.hand-card svg, 
+.card-wrapper svg,
+#discard-pile svg,
+#draw-pile svg {
+  color-scheme: light !important; /* SVG 내부 색상은 다크 반전 필터 배제 및 라이트 고정 */
+  isolation: isolate;
+  filter: none !important; /* 강제 필터 적용 해제 */
+}
+
+/* 다크리더 및 강제 다크모드 대응을 위한 메타/스타일 명세 추가 */
+[data-darkreader-inline-stroke],
+[data-darkreader-inline-fill] {
+  stroke: inherit !important;
+  fill: inherit !important;
+}
+

@@ -38,6 +38,7 @@
 }
 
 html, body {
+  color-scheme: dark; /* 브라우저 강제 반전 방지 및 기본 다크 모드 힌트 명시 */
   width: 100%;
   height: 100%;
   overflow: hidden;

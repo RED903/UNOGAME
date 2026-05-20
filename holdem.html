@@ -51,12 +51,19 @@
           <span id="snap-remain" style="font-size:0.7rem; color:rgba(240,240,255,0.4); margin-left:6px;"></span>
         </div>
 
-        <!-- 일반 액션 버튼 (콜/죽기/스냅) -->
+        <!-- 일반 액션 버튼 (스냅콜/콜/판돈2배/죽기) -->
         <div id="normal-actions" class="action-group">
+          <button id="btn-snap-call" class="btn-action btn-snap-call" style="display:none;">
+            <span class="btn-icon">📞</span>
+            <div class="btn-text-wrap">
+              <span class="btn-label" id="btn-snap-call-label">스냅콜</span>
+              <span class="btn-sub" id="btn-snap-call-sub">인상 가격 수락</span>
+            </div>
+          </button>
           <button id="btn-stay" class="btn-action btn-stay">
             <span class="btn-icon">💰</span>
             <div class="btn-text-wrap">
-              <span class="btn-label" id="btn-stay-label">배팅</span>
+              <span class="btn-label" id="btn-stay-label">콜</span>
               <span class="btn-sub" id="btn-stay-sub">클릭 시 칩 차감</span>
             </div>
           </button>

@@ -89,8 +89,44 @@ export function shuffleDeck(deck) {
  * @param {Object} card - 내려는 카드
  * @param {Object} topCard - 현재 더미 위 카드
  * @param {string} currentColor - 와일드 카드 후 선택된 색상
+ * @param {number} drawCount - 현재 드로우 누적 스택 카운트
  */
-export function isValidPlay(card, topCard, currentColor) {
+export function isValidPlay(card, topCard, currentColor, drawCount = 0) {
+  // 1. 드로우 패널티 스택이 활성화되어 있을 때 (drawCount > 0)
+  if (drawCount > 0) {
+    // A) Wild Draw Four (+4)는 언제나 낼 수 있음
+    if (card.type === CARD_TYPES.WILD_DRAW_FOUR) {
+      return true;
+    }
+
+    // B) Draw Two (+2)는 탑 카드가 WILD_DRAW_FOUR가 아닐 때 낼 수 있음
+    if (card.type === CARD_TYPES.DRAW_TWO) {
+      if (topCard.type !== CARD_TYPES.WILD_DRAW_FOUR) {
+        return true;
+      }
+    }
+
+    // C) Reverse (방향바꾸기)는 낼 수 있는 색상이 맞거나 탑 카드가 Reverse인 경우 스택 유지를 위해 허용
+    if (card.type === CARD_TYPES.REVERSE) {
+      const matchColor = currentColor || topCard.color;
+      if (card.color === matchColor || topCard.type === CARD_TYPES.REVERSE) {
+        return true;
+      }
+    }
+
+    // D) Skip (스킵)은 낼 수 있는 색상이 맞거나 탑 카드가 Skip인 경우 스택 유지를 위해 허용
+    if (card.type === CARD_TYPES.SKIP) {
+      const matchColor = currentColor || topCard.color;
+      if (card.color === matchColor || topCard.type === CARD_TYPES.SKIP) {
+        return true;
+      }
+    }
+
+    // 그 외 일반 카드(숫자 카드, 일반 와일드 카드 등)는 낼 수 없음!
+    return false;
+  }
+
+  // 2. 일반 상황 (드로우 스택이 없을 때) 기존 룰 적용
   // 와일드 카드는 항상 낼 수 있음
   if (card.type === CARD_TYPES.WILD || card.type === CARD_TYPES.WILD_DRAW_FOUR) {
     return true;
@@ -131,6 +167,7 @@ export function processCardPlay(card, gameState, playerId, playerIds) {
     case CARD_TYPES.SKIP:
       // 다음 플레이어를 건너뜀
       changes.skipNext = true;
+      changes.drawCount = gameState.drawCount || 0; // 드로우 스택 유지
       const skipIndex = (currentIndex + direction * 2 + playerIds.length) % playerIds.length;
       changes.nextPlayer = playerIds[skipIndex];
       break;
@@ -138,6 +175,7 @@ export function processCardPlay(card, gameState, playerId, playerIds) {
     case CARD_TYPES.REVERSE:
       // 방향 반전
       changes.reverseDirection = true;
+      changes.drawCount = gameState.drawCount || 0; // 드로우 스택 유지
       const newDir = -direction;
       
       if (playerIds.length === 2) {

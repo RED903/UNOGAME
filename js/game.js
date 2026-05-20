@@ -275,7 +275,7 @@ function renderMyHand() {
   });
 
   sorted.forEach((card, idx) => {
-    const playable = isMyTurn && topCard && isValidPlay(card, topCard, currentColor);
+    const playable = isMyTurn && topCard && isValidPlay(card, topCard, currentColor, gameState?.drawCount || 0);
     const isWild = card.type === CARD_TYPES.WILD || card.type === CARD_TYPES.WILD_DRAW_FOUR;
     const isSelectedWild = selectedCardId === card.id; // 와일드 선택 중
 
@@ -508,7 +508,7 @@ async function playCard(card, chosenColor) {
     : Object.values(gameState.discardPile);
   const topCard = discardArr[discardArr.length - 1];
 
-  if (!isValidPlay(card, topCard, gameState.currentColor)) {
+  if (!isValidPlay(card, topCard, gameState.currentColor, gameState.drawCount || 0)) {
     showFloatMsg('낼 수 없는 카드입니다!');
     playError();
     return;
@@ -1495,7 +1495,7 @@ async function executeBotAction(botId) {
   const topCard = discardArr[discardArr.length - 1];
 
   // 2) 낼 수 있는 카드들 필터링
-  const playableCards = botHand.filter(card => isValidPlay(card, topCard, gameState.currentColor));
+  const playableCards = botHand.filter(card => isValidPlay(card, topCard, gameState.currentColor, gameState.drawCount || 0));
 
   // 3) [낼 카드가 없는 경우] -> 1장 뽑고 다음 사람에게 넘김
   if (playableCards.length === 0) {

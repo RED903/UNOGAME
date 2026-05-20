@@ -18,7 +18,7 @@ import {
 } from './sound.js';
 
 // ─── 감정표현 목록 ────────────────────────────────
-const EMOTES = ['😂', '👍', '😤', '🔥', '😭', '🤯', '😮', '😜', '🤔', '🤮', '😡', '🤦‍♂️', '👎'];
+const EMOTES = ['Uno!', '😂', '👍', '😤', '🔥', '😭', '🤯', '😮', '😜', '🤔', '🤮', '😡', '🤦‍♂️', '👎'];
 
 // ─── 게임 상태 ────────────────────────────────────
 let myPlayerId = '';
@@ -410,10 +410,17 @@ function renderLastAction() {
     case 'draw_card': msg = `${action.playerName}가 카드를 뽑았습니다`; break;
     case 'draw_penalty': msg = `${action.playerName}가 ${action.count}장을 받았습니다`; break;
     case 'uno_call': msg = `🔔 ${action.playerName}가 UNO를 외쳤습니다!`; break;
-    case 'uno_penalty': msg = `⚠️ ${action.playerName}가 UNO 패널티 +2장!`; break;
+    case 'uno_penalty': msg = `⚠️ ${action.playerName}가 ${action.targetPlayerName || '상대'}의 UNO를 잡았습니다! (+2장 패널티)`; break;
     case 'skip': msg = `⏭️ ${action.playerName}의 차례를 건너뜁니다`; break;
     case 'reverse': msg = `🔄 방향이 바뀌었습니다`; break;
     default: msg = action.message || '';
+  }
+
+  // 우노 선언(uno_call) 또는 우노 잡기(uno_penalty) 이벤트 발생 시 자동으로 닉네임 옆에 Uno! 팝업 출력
+  if (action.type === 'uno_call' || action.type === 'uno_penalty') {
+    if (action.playerId) {
+      showEmotePopup(action.playerId, 'Uno!', action.timestamp || Date.now());
+    }
   }
 
   // 페이드 인 애니메이션
@@ -757,6 +764,7 @@ async function doUnoCall() {
 /** UNO 잡기 실행 */
 async function doCatchUno(targetPlayerId) {
   const gameRef = ref(database, `rooms/${myRoomCode}/gameState`);
+  const targetPlayerName = roomPlayersCache[targetPlayerId]?.name || '상대';
   try {
     const result = await runTransaction(gameRef, (currentData) => {
       if (!currentData) return currentData;
@@ -776,7 +784,9 @@ async function doCatchUno(targetPlayerId) {
       currentData.lastAction = {
         type: 'uno_penalty',
         playerName: myName,
+        playerId: myPlayerId,
         targetPlayerId,
+        targetPlayerName,
         timestamp: Date.now()
       };
 
@@ -1151,6 +1161,9 @@ function showEmotePopup(playerId, emote, timestamp) {
   const rect = playerEl.getBoundingClientRect();
   const popup = document.createElement('div');
   popup.className = 'emote-popup';
+  if (emote === 'Uno!') {
+    popup.classList.add('uno-text-popup');
+  }
   popup.textContent = emote;
   popup.style.left = `${rect.right + 10}px`;
   popup.style.top = `${rect.top}px`;
@@ -1163,6 +1176,9 @@ function showEmotePopupSelf(emote) {
   // 자기 자신의 팝업은 화면 중앙 하단에 표시
   const popup = document.createElement('div');
   popup.className = 'emote-popup';
+  if (emote === 'Uno!') {
+    popup.classList.add('uno-text-popup');
+  }
   popup.textContent = emote;
   popup.style.left = '50%';
   popup.style.bottom = '220px';
@@ -1459,6 +1475,8 @@ function checkBotsUnoCatch() {
         const luckyBotId = botIds[Math.floor(Math.random() * botIds.length)];
         const botName = players[luckyBotId]?.name || '컴퓨터 봇';
 
+        const targetPlayerName = players[catchTarget]?.name || '상대';
+
         showFloatMsg(`🚨 [우노잡기] 컴퓨터(${botName})가 먼저 잡았습니다! 패널티 +2장!`, 3000);
         playDrawPenalty();
 
@@ -1470,7 +1488,9 @@ function checkBotsUnoCatch() {
           lastAction: {
             type: 'uno_penalty',
             playerName: botName,
+            playerId: luckyBotId,
             targetPlayerId: catchTarget,
+            targetPlayerName,
             timestamp: Date.now()
           }
         });

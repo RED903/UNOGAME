@@ -540,6 +540,30 @@
   transition: all 0.15s;
 }
 
+/* Uno! 스페셜 골드 이모트 버튼 */
+.emote-btn[data-emote="Uno!"] {
+  grid-column: span 2;
+  width: auto;
+  min-width: 96px;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 69, 0, 0.15));
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+  box-shadow: inset 0 0 8px rgba(255, 215, 0, 0.1);
+  padding: 0 8px;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.emote-btn[data-emote="Uno!"]:hover {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 69, 0, 0.3));
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5), inset 0 0 8px rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.8);
+  transform: scale(1.1) translateY(-2px);
+}
+
 .emote-btn:hover {
   background: rgba(255,255,255,0.18);
   transform: scale(1.15);
@@ -559,6 +583,20 @@
   animation: emoteFloat 3s ease-out forwards;
   text-shadow: 0 2px 12px rgba(0,0,0,0.5);
   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
+
+/* Uno! 프리미엄 텍스트 팝업 특수 스타일 */
+.emote-popup.uno-text-popup {
+  font-size: 2.3rem;
+  font-weight: 900;
+  color: #ffd700;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  filter: drop-shadow(0 2px 10px rgba(255, 215, 0, 0.6));
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: 0.5px;
 }
 
 @keyframes emoteFloat {

@@ -20,15 +20,15 @@
 
       <!-- 중앙: 포커 테이블 -->
       <div class="poker-table" id="poker-table">
-        <div class="pot-display">
-          <span class="pot-label">팟</span>
-          <span class="pot-amount" id="pot-amount">0칩</span>
+        <div class="table-header-info" style="display:flex; gap:10px; align-items:center; justify-content:center; margin-bottom:12px; flex-wrap:wrap; z-index:10;">
+          <div class="pot-display">
+            <span class="pot-label">팟</span>
+            <span class="pot-amount" id="pot-amount">0칩</span>
+          </div>
+          <div class="phase-badge" id="phase-badge">대기 중</div>
+          <div id="phase-ante" style="font-size:0.75rem; color:#d4af37; font-weight:700; background:rgba(0,0,0,0.4); padding:7px 14px; border-radius:50px; border:1px solid rgba(212,175,55,0.25);"></div>
         </div>
         <div class="community-cards" id="community-cards"></div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center;">
-          <div class="phase-badge" id="phase-badge">대기 중</div>
-          <div id="phase-ante" style="font-size:0.72rem; color:rgba(240,240,255,0.45); font-weight:600;"></div>
-        </div>
       </div>
 
       <!-- 내 카드 & 베팅 영역 -->
@@ -51,13 +51,13 @@
           <span id="snap-remain" style="font-size:0.7rem; color:rgba(240,240,255,0.4); margin-left:6px;"></span>
         </div>
 
-        <!-- 일반 액션 버튼 (살기/죽기/스냅) -->
-        <div id="normal-actions" class="action-group" style="display:none;">
+        <!-- 일반 액션 버튼 (콜/죽기/스냅) -->
+        <div id="normal-actions" class="action-group">
           <button id="btn-stay" class="btn-action btn-stay">
             <span class="btn-icon">✓</span>
             <div class="btn-text-wrap">
-              <span class="btn-label">살기</span>
-              <span class="btn-sub">생존 유지</span>
+              <span class="btn-label" id="btn-stay-label">콜</span>
+              <span class="btn-sub" id="btn-stay-sub">생존 유지</span>
             </div>
           </button>
           <button id="btn-snap" class="btn-action btn-snap">
@@ -77,8 +77,8 @@
         </div>
 
         <!-- 스냅 응답 버튼 (스냅콜/런) -->
-        <div id="snap-actions" class="action-group snap-pending-group" style="display:none;">
-          <div class="snap-alert-box">
+        <div id="snap-actions" class="action-group snap-pending-group" style="margin-top: 8px;">
+          <div class="snap-alert-box" id="snap-alert-box">
             ⚡ 스냅 발동! 스냅 콜 비용: <strong id="snap-call-cost" style="color:#d4af37;">0</strong>칩
           </div>
           <div style="display:flex; gap:12px; justify-content:center; width:100%;">
@@ -100,7 +100,7 @@
         </div>
 
         <!-- 다음 라운드 버튼 -->
-        <button class="btn-next-round" id="btn-next-round" style="display:none;">
+        <button class="btn-next-round" id="btn-next-round" style="display:none; margin-top:8px;">
           🔄 다음 라운드
         </button>
 

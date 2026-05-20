@@ -969,17 +969,55 @@ function renderActionButtons() {
   const nextBtn       = document.getElementById('btn-next-round');
   const infoEl        = document.getElementById('action-info');
 
-  if (normalActions) normalActions.style.display = (isMyTurn && !snapPend) ? 'flex' : 'none';
+  // 일반 액션 버튼은 흔들림 방지를 위해 항시 노출 상태로 유지
+  if (normalActions) {
+    normalActions.style.display = 'flex';
+
+    const stayBtn = document.getElementById('btn-stay');
+    const snapBtn = document.getElementById('btn-snap');
+    const foldBtn = document.getElementById('btn-fold');
+
+    // 내 차례가 아니거나, 다른 사람이 스냅을 친 응답 대기 상태라면 모든 일반 액션 버튼 비활성화
+    const disabledState = !(isMyTurn && !snapPend);
+
+    if (stayBtn) stayBtn.disabled = disabledState;
+    if (foldBtn) foldBtn.disabled = disabledState;
+
+    if (snapBtn) {
+      if (disabledState) {
+        snapBtn.disabled = true;
+        snapBtn.style.opacity = '0.35';
+        snapBtn.innerHTML = `
+          <span class="btn-icon">⚡</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label">스냅!</span>
+            <span class="btn-sub">${(gs.maxSnaps ?? 3) - (gs.snapCount ?? 0)}회 남음</span>
+          </div>
+        `;
+      } else {
+        snapBtn.disabled = !canSnap;
+        snapBtn.style.opacity = canSnap ? '1' : '0.35';
+        snapBtn.innerHTML = `
+          <span class="btn-icon">⚡</span>
+          <div class="btn-text-wrap">
+            <span class="btn-label">${canSnap ? '스냅!' : '스냅 마감'}</span>
+            <span class="btn-sub">${canSnap ? `판돈 2배 (${(gs.maxSnaps ?? 3) - (gs.snapCount ?? 0)}회 남음)` : '스냅 한도 도달'}</span>
+          </div>
+        `;
+      }
+    }
+
+    // 콜 명칭 및 현재 페이즈의 배팅(ante) 비용 동적 표시
+    const stayLabel = document.getElementById('btn-stay-label');
+    const staySub = document.getElementById('btn-stay-sub');
+    if (stayLabel) stayLabel.textContent = '콜';
+    if (staySub) {
+      staySub.textContent = isFinished ? '생존 유지' : `${gs.phaseAnte ?? 0}칩 내기`;
+    }
+  }
+
   if (snapActions)   snapActions.style.display   = iNeedResp ? 'flex' : 'none';
   if (nextBtn)       nextBtn.style.display       = (isHost && isFinished) ? 'inline-flex' : 'none';
-
-  // 스냅 버튼 상태
-  const snapBtn = document.getElementById('btn-snap');
-  if (snapBtn) {
-    snapBtn.disabled = !canSnap;
-    snapBtn.textContent = canSnap ? `⚡ 스냅! (${gs.maxSnaps - gs.snapCount}회 남음)` : '⚡ 스냅 마감';
-    snapBtn.style.opacity = canSnap ? '1' : '0.4';
-  }
 
   // 스냅콜 비용 표시
   const callCostEl = document.getElementById('snap-call-cost');
@@ -1010,7 +1048,7 @@ function renderActionButtons() {
       infoEl.textContent = cur ? `${name} 선택 중...` : '';
     } else {
       const ante = gs.phaseAnte ?? 0;
-      infoEl.textContent = `✓ 살기: 계속 진행 | ✕ 죽기: 기권 | ⚡ 스냅: 판돈 2배 (콜 비용 ${ante * 2}칩)`;
+      infoEl.textContent = `✓ 콜: 계속 진행 (${ante}칩) | ✕ 죽기: 기권 | ⚡ 스냅: 판돈 2배`;
     }
   }
 

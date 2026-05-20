@@ -986,6 +986,7 @@ function renderActionButtons() {
   const snapPend  = gs.snapPending;
   const iNeedResp = snapPend && gs.snapTriggerPid !== myPlayerId && !isFolded && !gs.snapResponses?.[myPlayerId];
   const canSnap   = (gs.snapCount ?? 0) < (gs.maxSnaps ?? 3) && !gs.playerSnapped?.[myPlayerId];
+  const myChips   = gs.chipCounts?.[myPlayerId] ?? 0;
 
   // 버튼 그룹 표시/숨김
   const normalActions = document.getElementById('normal-actions');
@@ -1010,7 +1011,6 @@ function renderActionButtons() {
       if (iNeedResp) {
         // 스냅 콜 응답 모드
         const callCost = gs.snapCallCost ?? 0;
-        const myChips  = gs.chipCounts?.[myPlayerId] ?? 0;
         const canAfford = myChips >= callCost;
         
         stayBtn.disabled = !canAfford;

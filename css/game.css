@@ -303,32 +303,12 @@
   50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(255,0,0,0.7); }
 }
 
-/* 내 턴 인디케이터 */
+/* 내 턴 인디케이터 - 화면에 표시하지 않음 */
 #my-turn-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 20px;
-  border-radius: 50px;
-  background: rgba(255,215,0,0.1);
-  border: 1px solid rgba(255,215,0,0.2);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--uno-muted);
-  transition: all 0.3s;
-  opacity: 0;
+  display: none;
 }
 #my-turn-indicator.active {
-  background: rgba(255,215,0,0.2);
-  border-color: rgba(255,215,0,0.5);
-  color: var(--uno-yellow);
-  box-shadow: 0 0 20px rgba(255,215,0,0.3);
-  opacity: 1;
-  animation: myTurnGlow 1.5s ease-in-out infinite;
-}
-@keyframes myTurnGlow {
-  0%, 100% { box-shadow: 0 0 15px rgba(255,215,0,0.3); }
-  50% { box-shadow: 0 0 30px rgba(255,215,0,0.6); }
+  display: none;
 }
 
 /* ─── 내 손패 (하단) ─────────────────────────── */
@@ -805,10 +785,9 @@ body.my-turn .game-table::after {
   /* 방향 인디케이터 */
   #direction-indicator { font-size: 1.4rem; }
 
-  /* 내 턴 인디케이터 */
+  /* 내 턴 인디케이터 - 숨김 */
   #my-turn-indicator {
-    font-size: 0.72rem;
-    padding: 6px 14px;
+    display: none;
   }
 
   /* 액션 로그 */

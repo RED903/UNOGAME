@@ -140,6 +140,7 @@ function cleanupListeners() {
     try { unsub(); } catch (e) { /* 무시 */ }
   });
   listeners.length = 0; // 배열 비우기
+  stopTurnTimeoutTimer(); // 턴 타이머도 초기화 및 제거
 }
 
 async function checkIfHostAndInit() {
@@ -234,6 +235,9 @@ function renderGameState() {
 
   if (isMyTurn) {
     playMyTurn();
+    startTurnTimeoutTimer(); // 턴 자동 드로우 타이머 시작
+  } else {
+    stopTurnTimeoutTimer(); // 내 턴이 아니면 즉각 타이머 클리어
   }
 
   // 패 다시 렌더 (유효성 재계산)
@@ -525,6 +529,8 @@ function handleCardPlay(card) {
 async function playCard(card, chosenColor) {
   if (!gameState || gameState.currentPlayer !== myPlayerId) return;
 
+  stopTurnTimeoutTimer(); // 카드를 냈으므로 턴 타이머 정지
+
   const playerIds = Object.values(gameState.playerOrder || {});
   const discardArr = Array.isArray(gameState.discardPile)
     ? gameState.discardPile
@@ -628,6 +634,8 @@ async function handleDrawCard() {
     showFloatMsg('지금은 내 차례가 아닙니다!');
     return;
   }
+
+  stopTurnTimeoutTimer(); // 카드를 뽑았으므로 턴 타이머 정지
 
   const drawCount = gameState.drawCount > 0 ? gameState.drawCount : 1;
 
@@ -1491,6 +1499,51 @@ function showFloatMsg(text, duration = 1500) {
   floatTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
+// ─── [★ 유저 잠수 방지 턴 타임아웃 타이머] ────────────────
+let turnTimeoutTimer = null;
+let turnTimeLeft = 15;
+
+function startTurnTimeoutTimer() {
+  // 이미 타이머가 진행 중이라면 중복 시작 방지
+  if (turnTimeoutTimer) return;
+
+  turnTimeLeft = 15; // 15초 제한 시간
+  updateTurnTimerUI();
+
+  turnTimeoutTimer = setInterval(() => {
+    turnTimeLeft--;
+    updateTurnTimerUI();
+
+    if (turnTimeLeft <= 0) {
+      clearInterval(turnTimeoutTimer);
+      turnTimeoutTimer = null;
+      console.log("[잠수 방지] 제한 시간이 만료되어 자동으로 카드를 드로우합니다.");
+      showFloatMsg("⏳ 시간 초과! 카드를 자동으로 한 장 뽑습니다.");
+      // 자동으로 카드 드로우 실행
+      handleDrawCard();
+    }
+  }, 1000);
+}
+
+function stopTurnTimeoutTimer() {
+  if (turnTimeoutTimer) {
+    clearInterval(turnTimeoutTimer);
+    turnTimeoutTimer = null;
+  }
+  // UI 복원
+  const indicatorEl = document.getElementById('my-turn-indicator');
+  if (indicatorEl) {
+    indicatorEl.innerHTML = `⭐ 내 차례입니다! 카드를 선택하세요`;
+  }
+}
+
+function updateTurnTimerUI() {
+  const indicatorEl = document.getElementById('my-turn-indicator');
+  if (indicatorEl) {
+    indicatorEl.innerHTML = `⭐ 내 차례입니다! 카드를 선택하세요 <span class="turn-timer" style="color: #ff4757; font-weight: 800; margin-left: 8px; font-family: monospace;">(남은 시간: ${turnTimeLeft}초)</span>`;
+  }
+}
+
 // ─── [★ AI 컴퓨터 플레이어 대행 엔진] ────────────────
 let activeBotThinkings = {}; // 봇 작동 상태 중복 방지 맵
 let botUnoTimersMap = {};    // 봇별 우노 타이머 보관용 맵 { [botId]: timerId }
@@ -1513,9 +1566,9 @@ function checkBotsUnoCatch() {
   // 이미 봇이 우노잡기 실행을 준비 중이라면 중복 타이머 방지
   if (botUnoCatchTimer) return;
 
-  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.5초 ~ 1.2초로 랜덤 - 우노 선언 0.4초대보다 약간 더 여유 부여)
+  // 봇이 우노잡기 버튼을 누를 때까지의 반응 속도 딜레이 (0.45초 ~ 1.15초로 랜덤 - 50ms 단축)
   // 유저가 이 사이에 먼저 우노 선언을 하거나, 유저가 먼저 우노잡기를 클릭하면 타이머는 무효화됩니다.
-  const catchDelay = 500 + Math.random() * 700;
+  const catchDelay = 450 + Math.random() * 700;
 
   botUnoCatchTimer = setTimeout(async () => {
     try {
@@ -1758,8 +1811,8 @@ async function executeBotAction(botId) {
       delete botUnoTimersMap[botId];
     }
 
-    // 0.4초 ~ 0.9초 뒤 봇의 우노 자동 등록 (무작위 지연 적용 - 더욱 민첩하게 외침)
-    const unoDelay = 400 + Math.random() * 500;
+    // 0.35초 ~ 0.85초 뒤 봇의 우노 자동 등록 (무작위 지연 적용 - 50ms 단축)
+    const unoDelay = 350 + Math.random() * 500;
     botUnoTimersMap[botId] = setTimeout(async () => {
       // 그 사이에 다른 사람에게 잡히지 않고, 봇이 여전히 1장 손패를 들고 있다면
       const currentSnap = await get(ref(database, `rooms/${myRoomCode}/gameState`));

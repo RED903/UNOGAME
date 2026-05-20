@@ -139,9 +139,15 @@ export function processCardPlay(card, gameState, playerId, playerIds) {
       // 방향 반전
       changes.reverseDirection = true;
       const newDir = -direction;
-      // 2명 플레이어일 때도 스킵 처리하지 않고, 방향 전환 후 계산된 상대방에게 턴을 넘깁니다.
-      const revIndex = (currentIndex + newDir + playerIds.length) % playerIds.length;
-      changes.nextPlayer = playerIds[revIndex];
+      
+      if (playerIds.length === 2) {
+        // [★ 핵심 룰] 1대1(2명) 게임 시에는 방향 바꾸기를 내면 다시 본인 순서가 됩니다 (Skip 효과와 동일)
+        changes.nextPlayer = playerId;
+      } else {
+        // 3명 이상일 때는 정상적으로 방향 전환 후 다음 플레이어 계산
+        const revIndex = (currentIndex + newDir + playerIds.length) % playerIds.length;
+        changes.nextPlayer = playerIds[revIndex];
+      }
       break;
 
     case CARD_TYPES.DRAW_TWO:

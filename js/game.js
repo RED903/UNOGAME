@@ -14,8 +14,10 @@ import {
 } from './card-renderer.js';
 import {
   playCardPlay, playCardDraw, playMyTurn, playUnoCall,
-  playWin, playLose, playWild, playDrawPenalty, playError, playChat
+  playWin, playLose, playWild, playDrawPenalty, playError, playChat,
+  getAudioVolume, setAudioVolume
 } from './sound.js';
+import { startGameBgm, stopGameBgm, setBgmVolume } from './bgm.js';
 
 // ─── 감정표현 목록 ────────────────────────────────
 const EMOTES = ['Uno!', '😂', '👍', '😤', '🔥', '😭', '🤯', '😮', '😜', '🤔', '🤮', '😡', '🤦‍♂️', '👎'];
@@ -54,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initEmotePanel();
+  initVolumeControl();
   bindGameEvents();
   listenToGame();
 });
@@ -141,6 +144,35 @@ function cleanupListeners() {
   });
   listeners.length = 0; // 배열 비우기
   stopTurnTimeoutTimer(); // 턴 타이머도 초기화 및 제거
+  stopGameBgm();
+}
+
+function syncBgmWithGameState() {
+  if (!gameState) return;
+  const modalOpen = document.getElementById('game-over-modal')?.style.display === 'flex';
+  if (gameState.started && !gameState.finished && !modalOpen) {
+    startGameBgm();
+  } else {
+    stopGameBgm();
+  }
+}
+
+function initVolumeControl() {
+  const slider = document.getElementById('bgm-volume');
+  const label = document.getElementById('bgm-volume-label');
+  if (!slider) return;
+
+  const pct = Math.round(getAudioVolume() * 100);
+  slider.value = String(pct);
+  if (label) label.textContent = `${pct}%`;
+
+  slider.addEventListener('input', () => {
+    const v = parseInt(slider.value, 10) / 100;
+    setAudioVolume(v);
+    setBgmVolume(v);
+    if (label) label.textContent = `${slider.value}%`;
+    slider.setAttribute('aria-valuenow', slider.value);
+  });
 }
 
 async function checkIfHostAndInit() {
@@ -247,6 +279,8 @@ function renderGameState() {
 
   // UNO 버튼 상태 업데이트
   checkUnoStatus();
+
+  syncBgmWithGameState();
 
   // UNO 패널티 처리 (나이거나 봇 대행)
   handleUnoPenaltyIfTarget();
@@ -1062,6 +1096,7 @@ function showGameOver({ isWinner, winnerName, reason }) {
   }
 
   modal.style.display = 'flex';
+  stopGameBgm();
 }
 
 // ─── 게임 다시 시작 (방장만) ─────────────────────

@@ -3,7 +3,21 @@
 // 외부 파일 없이 프로그래밍 방식으로 효과음 생성
 // ═══════════════════════════════════════════════════
 
+const VOLUME_KEY = 'uno_audio_volume';
+const DEFAULT_VOLUME = 0.5;
+
 let audioCtx = null;
+
+export function getAudioVolume() {
+  const raw = parseFloat(localStorage.getItem(VOLUME_KEY));
+  return Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : DEFAULT_VOLUME;
+}
+
+export function setAudioVolume(volume) {
+  const v = Math.min(1, Math.max(0, volume));
+  localStorage.setItem(VOLUME_KEY, String(v));
+  return v;
+}
 
 // AudioContext 지연 초기화 (사용자 상호작용 후)
 function getAudioContext() {
@@ -26,6 +40,7 @@ function playTone(frequency, duration, type = 'sine', volume = 0.3, delay = 0) {
     const ctx = getAudioContext();
     const osc = ctx.createOscillator();
     const gainNode = ctx.createGain();
+    const scaledVol = volume * getAudioVolume();
 
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
@@ -35,7 +50,7 @@ function playTone(frequency, duration, type = 'sine', volume = 0.3, delay = 0) {
 
     // 부드러운 페이드 인/아웃
     gainNode.gain.setValueAtTime(0, ctx.currentTime + delay);
-    gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + delay + 0.01);
+    gainNode.gain.linearRampToValueAtTime(scaledVol, ctx.currentTime + delay + 0.01);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
 
     osc.start(ctx.currentTime + delay);
@@ -118,4 +133,10 @@ export function playError() {
 /** 채팅 메시지 */
 export function playChat() {
   playTone(880, 0.05, 'sine', 0.15);
+}
+
+/** 버튼 클릭 (로비 등) */
+export function playButtonClick() {
+  playTone(520, 0.04, 'sine', 0.18);
+  playTone(780, 0.05, 'sine', 0.14, 0.03);
 }

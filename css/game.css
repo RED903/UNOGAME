@@ -162,6 +162,39 @@
   border-left: 1px solid rgba(255,255,255,0.06);
 }
 
+.sidebar-volume-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.volume-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: rgba(240,240,255,0.55);
+  text-transform: uppercase;
+}
+
+.volume-slider {
+  width: 100%;
+  accent-color: var(--uno-yellow, #ffd900);
+  cursor: pointer;
+}
+
+.volume-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--uno-yellow, #ffd900);
+  text-align: right;
+}
+
 .sidebar-uno-panel {
   display: flex;
   flex-direction: column;

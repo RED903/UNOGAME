@@ -6,7 +6,7 @@
 import {
   database, ref, set, get, push, onValue, update, remove, off, serverTimestamp
 } from './firebase-config.js';
-import { playJoinRoom, playError } from './sound.js';
+import { playJoinRoom, playError, playButtonClick } from './sound.js';
 import { startHoldemRound } from './holdem-init.js';
 
 // 현재 플레이어 상태
@@ -56,6 +56,12 @@ async function initLobby() {
 }
 
 function bindEvents() {
+  // 로비 전체 버튼 클릭음
+  document.querySelector('.lobby-root')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (btn && !btn.disabled) playButtonClick();
+  });
+
   // 메인 화면 버튼
   document.getElementById('btn-create').addEventListener('click', () => showScreen('create'));
   document.getElementById('btn-join').addEventListener('click', () => showScreen('join'));
@@ -85,8 +91,6 @@ function bindEvents() {
 async function handleCreateRoom() {
   const nameInput = document.getElementById('input-create-name');
   const maxPlayersSelect = document.getElementById('select-max-players');
-  const gameTypeSelect = document.getElementById('select-game-type');
-
   const name = nameInput.value.trim();
   if (!name) {
     showError('create', '닉네임을 입력해주세요!');
@@ -98,7 +102,7 @@ async function handleCreateRoom() {
   }
 
   const maxPlayers = parseInt(maxPlayersSelect.value);
-  const gameType = gameTypeSelect ? gameTypeSelect.value : 'uno'; // 게임 종류 (없으면 uno 기본값)
+  const gameType = 'uno';
   const roomCode = generateRoomCode();
 
   setLoading('btn-do-create', true);

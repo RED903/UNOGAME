@@ -155,8 +155,15 @@ async function checkIfHostAndInit() {
 }
 
 async function initNewGame(room) {
-  const playerIds = Object.keys(room.players || {});
+  const rawPlayerIds = Object.keys(room.players || {});
+  
+  // [★ 요구사항 1] 봇전이든 멀티플레이든 방장(나)의 차례가 무조건 첫 번째가 되도록 playerIds 순서 재정렬
+  const hostId = room.host;
+  const playerIds = [hostId, ...rawPlayerIds.filter(id => id !== hostId)];
+
   const initialState = initializeGame(playerIds, 7);
+  // 첫 턴 플레이어도 항상 방장(나)으로 강제 고정
+  initialState.currentPlayer = hostId;
 
   // 손패는 플레이어별로 분리 저장 (보안)
   const handsUpdate = {};
@@ -941,8 +948,13 @@ async function handleRestartGame() {
     if (!snap.exists()) return;
 
     const room = snap.val();
-    const playerIds = Object.keys(room.players || {});
+    const rawPlayerIds = Object.keys(room.players || {});
+    const hostId = room.host;
+    const playerIds = [hostId, ...rawPlayerIds.filter(id => id !== hostId)];
+
     const initialState = initializeGame(playerIds, 7);
+    // 첫 턴 플레이어도 항상 방장(나)으로 강제 고정
+    initialState.currentPlayer = hostId;
 
     // 손패는 플레이어별로 분리 저장 (보안)
     const handsUpdate = {};
@@ -1131,13 +1143,31 @@ function bindGameEvents() {
     window.removeEventListener('beforeunload', handleBeforeUnload);
     if (isHost) {
       try {
-        await update(ref(database, `rooms/${myRoomCode}`), {
-          status: 'waiting',
-          gameState: null,
-          winnerName: null,
-          winnerPlayerId: null,
-          emotes: null
-        });
+        // [★ 요구사항 3] 대기실로 복귀할 때 방에 있던 봇(bot_)들을 데이터베이스에서 완벽하게 제거
+        const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
+        const updates = {
+          [`rooms/${myRoomCode}/status`]: 'waiting',
+          [`rooms/${myRoomCode}/gameState`]: null,
+          [`rooms/${myRoomCode}/winnerName`]: null,
+          [`rooms/${myRoomCode}/winnerPlayerId`]: null,
+          [`rooms/${myRoomCode}/emotes`]: null
+        };
+
+        if (roomSnap.exists()) {
+          const roomData = roomSnap.val();
+          const players = roomData.players || {};
+          
+          Object.keys(players).forEach(pid => {
+            if (pid.startsWith('bot_')) {
+              // 봇 플레이어 삭제
+              updates[`rooms/${myRoomCode}/players/${pid}`] = null;
+              // 봇 손패 삭제
+              updates[`rooms/${myRoomCode}/hands/${pid}`] = null;
+            }
+          });
+        }
+
+        await update(ref(database), updates);
         window.location.href = 'index.html';
       } catch (err) {
         console.error("대기실 복귀 처리 실패:", err);
@@ -1197,8 +1227,11 @@ async function leaveGameRoom() {
     // 나를 제외한 남은 플레이어 목록
     const remainingIds = playerIds.filter(id => id !== myPlayerId);
 
-    // 1) 나 혼자였던 방이면 방 삭제 후 메인으로
-    if (remainingIds.length === 0) {
+    // 나를 제외한 남은 실제 유저 목록 (봇 제외)
+    const remainingHumanIds = remainingIds.filter(id => !id.startsWith('bot_'));
+
+    // 1) 실제 유저가 나 혼자였던 방(싱글 봇전 포함)이면 방 삭제 후 메인으로
+    if (remainingHumanIds.length === 0) {
       await remove(roomRef);
       redirectToLobby();
       return;
@@ -1329,8 +1362,8 @@ function triggerBotTurn(botId) {
   if (activeBotThinkings[botId]) return;
   activeBotThinkings[botId] = true;
 
-  // 봇의 자연스러운 고민 시간 부여 (1.2초 ~ 1.8초)
-  const thinkDelay = 1200 + Math.random() * 600;
+  // 봇의 자연스러운 고민 시간 부여 (2.2초 ~ 4.0초로 느리고 불규칙하게 조절)
+  const thinkDelay = 2200 + Math.random() * 1800;
 
   setTimeout(async () => {
     try {

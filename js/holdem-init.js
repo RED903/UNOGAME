@@ -27,9 +27,9 @@ export function getMaxSnaps(n) {
   return n <= 4 ? 2 : 3;
 }
 
-/** 플레이어당 이번 판 스냅콜 가능 횟수 (인원수 기준) */
-export function getMaxSnapCallsPerPlayer(n) {
-  return n <= 4 ? 2 : 3;
+/** 플레이어당 이번 판 스냅콜 가능 횟수 (인당 1회) */
+export function getMaxSnapCallsPerPlayer() {
+  return 1;
 }
 
 function asArray(val) {
@@ -68,7 +68,7 @@ export async function startHoldemRound(roomCode, room) {
   const n = playerIds.length;
   const startChips = getStartingChips(n);
   const maxSnaps = getMaxSnaps(n);
-  const maxSnapCallsPerPlayer = getMaxSnapCallsPerPlayer(n);
+  const maxSnapCallsPerPlayer = getMaxSnapCallsPerPlayer();
 
   const prevChips = prevGs.chipCounts || {};
   const chipCounts = {};

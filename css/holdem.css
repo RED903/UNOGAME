@@ -424,10 +424,28 @@ body {
 }
 
 .btn-action:disabled {
-  opacity: 0.3;
+  background: rgba(30, 30, 45, 0.45) !important;
+  background-image: none !important; /* 비활성화 시 그라데이션 완전히 제거 */
+  animation: none !important;        /* 스냅 버튼의 펄스 애니메이션 등 정지 */
+  color: rgba(240, 240, 255, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  opacity: 0.8 !important;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
+}
+
+.btn-action:disabled .btn-icon {
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(240, 240, 255, 0.18) !important;
+}
+
+.btn-action:disabled .btn-label {
+  color: rgba(240, 240, 255, 0.22) !important; /* 라벨 색상도 비활성화 톤으로 강제 지정 */
+}
+
+.btn-action:disabled .btn-sub {
+  color: rgba(240, 240, 255, 0.15) !important;
 }
 
 .btn-icon {
@@ -602,7 +620,19 @@ body {
   text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 
-
+/* phase-ante 배팅 정보 클래스 추가 */
+.phase-ante {
+  font-size: 0.75rem;
+  color: var(--poker-gold);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 7px 14px;
+  border-radius: 50px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
 /* ─── 우측 패널: 게임 정보 ──────────────────────── */
 .info-panel {
   background: rgba(255,255,255,0.03);

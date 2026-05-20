@@ -946,9 +946,9 @@ function renderSnapInfo() {
     return `<span class="snap-step ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}" style="font-size:0.75rem; font-weight:900; padding:3px 8px; border-radius:12px; background:${isCurrent ? 'rgba(212,175,55,0.3)' : isPast ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}; color:${isCurrent ? '#d4af37' : isPast ? 'rgba(240,240,255,0.35)' : 'rgba(240,240,255,0.5)'}; border:1px solid ${isCurrent ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.1)'};">${isPast ? '✓' : ''}×${val}</span>`
   }).join(`<span style="color:rgba(240,240,255,0.3); font-size:0.7rem;">→</span>`);
 
-  // 스냅 남은 횟수
+  // 글로벌 스냅 남은 한도
   const remainEl = document.getElementById('snap-remain');
-  if (remainEl) remainEl.textContent = `스냅 가능: ${max - count}/${max}`;
+  if (remainEl) remainEl.textContent = `판당 한도: ${max - count}/${max}`;
 }
 
 // ─── 액션 버튼 ───────────────────────────────────────
@@ -979,40 +979,58 @@ function renderActionButtons() {
 
     // 내 차례가 아니거나, 다른 사람이 스냅을 친 응답 대기 상태라면 모든 일반 액션 버튼 비활성화
     const disabledState = !(isMyTurn && !snapPend);
+    const mySnapped = gs.playerSnapped?.[myPlayerId];
+    const isSnapDisabled = disabledState || mySnapped || !canSnap;
 
-    if (stayBtn) stayBtn.disabled = disabledState;
-    if (foldBtn) foldBtn.disabled = disabledState;
-
-    if (snapBtn) {
-      if (disabledState) {
-        snapBtn.disabled = true;
-        snapBtn.style.opacity = '0.35';
-        snapBtn.innerHTML = `
-          <span class="btn-icon">⚡</span>
-          <div class="btn-text-wrap">
-            <span class="btn-label">스냅!</span>
-            <span class="btn-sub">${(gs.maxSnaps ?? 3) - (gs.snapCount ?? 0)}회 남음</span>
-          </div>
-        `;
-      } else {
-        snapBtn.disabled = !canSnap;
-        snapBtn.style.opacity = canSnap ? '1' : '0.35';
-        snapBtn.innerHTML = `
-          <span class="btn-icon">⚡</span>
-          <div class="btn-text-wrap">
-            <span class="btn-label">${canSnap ? '스냅!' : '스냅 마감'}</span>
-            <span class="btn-sub">${canSnap ? `판돈 2배 (${(gs.maxSnaps ?? 3) - (gs.snapCount ?? 0)}회 남음)` : '스냅 한도 도달'}</span>
-          </div>
-        `;
-      }
+    // 콜 버튼 innerHTML로 강제 렌더링하여 괄호 칩 텍스트 완전 보장
+    if (stayBtn) {
+      stayBtn.disabled = disabledState;
+      const currentAnte = gs.phaseAnte ?? 0;
+      stayBtn.innerHTML = `
+        <span class="btn-icon">✓</span>
+        <div class="btn-text-wrap">
+          <span class="btn-label" id="btn-stay-label">콜 (${currentAnte}칩)</span>
+          <span class="btn-sub" id="btn-stay-sub">생존 유지</span>
+        </div>
+      `;
     }
 
-    // 콜 명칭 및 현재 페이즈의 배팅(ante) 비용 동적 표시
-    const stayLabel = document.getElementById('btn-stay-label');
-    const staySub = document.getElementById('btn-stay-sub');
-    if (stayLabel) stayLabel.textContent = '콜';
-    if (staySub) {
-      staySub.textContent = isFinished ? '생존 유지' : `${gs.phaseAnte ?? 0}칩 내기`;
+    // 죽기 버튼 innerHTML 렌더링 일관성 유지
+    if (foldBtn) {
+      foldBtn.disabled = disabledState;
+      foldBtn.innerHTML = `
+        <span class="btn-icon">✕</span>
+        <div class="btn-text-wrap">
+          <span class="btn-label">죽기</span>
+          <span class="btn-sub">기권</span>
+        </div>
+      `;
+    }
+
+    // 판돈 2배 (스냅) 버튼 디자인 및 1인당 1회 룰/글로벌 캡 반영
+    if (snapBtn) {
+      snapBtn.disabled = isSnapDisabled;
+      snapBtn.style.opacity = isSnapDisabled ? '0.35' : '1';
+
+      const extraCost = (gs.phaseAnte ?? 0) * 2;
+      let snapLabelStr = '판돈 2배';
+      let snapSubStr = `(추가 ${extraCost}칩)`;
+
+      if (mySnapped) {
+        snapLabelStr = '판돈 2배';
+        snapSubStr = '스냅 완료 (1회 제한)';
+      } else if (!canSnap) {
+        snapLabelStr = '판돈 2배';
+        snapSubStr = '스냅 한도 도달';
+      }
+
+      snapBtn.innerHTML = `
+        <span class="btn-icon">⚡</span>
+        <div class="btn-text-wrap">
+          <span class="btn-label">${snapLabelStr}</span>
+          <span class="btn-sub">${snapSubStr}</span>
+        </div>
+      `;
     }
   }
 
@@ -1047,8 +1065,8 @@ function renderActionButtons() {
       const name = cur ? (roomPlayersCache[cur]?.name || '상대') : '';
       infoEl.textContent = cur ? `${name} 선택 중...` : '';
     } else {
-      const ante = gs.phaseAnte ?? 0;
-      infoEl.textContent = `✓ 콜: 계속 진행 (${ante}칩) | ✕ 죽기: 기권 | ⚡ 스냅: 판돈 2배`;
+      // 내 차례일 때 하단 도움말 문구 통째로 삭제
+      infoEl.textContent = '';
     }
   }
 

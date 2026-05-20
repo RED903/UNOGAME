@@ -16,9 +16,9 @@ const PHASE_ANTES  = { preflop: 1, flop: 2, turn: 4, river: 8 };
 const PHASE_NAMES  = { preflop: '프리플랍', flop: '플랍', turn: '턴', river: '리버', showdown: '쇼다운' };
 
 function getStartingChips(n) {
-  if (n <= 4) return 50;
-  if (n <= 7) return 100;
-  return 150;
+  if (n <= 4) return 250;
+  if (n <= 7) return 500;
+  return 750;
 }
 function getMaxSnaps(n) {
   return n <= 4 ? 2 : 3;

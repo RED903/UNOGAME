@@ -242,9 +242,36 @@ async function handleStartGame() {
   const room = snapshot.val();
   const playerIds = Object.keys(room.players || {});
 
-  if (playerIds.length < 2) {
-    showToast('최소 2명이 필요합니다!');
-    return;
+  // 만약 방에 방장 혼자만 있다면 컴퓨터(봇)를 인원수에 맞춰서 자동 투입
+  if (playerIds.length === 1) {
+    const botNames = [
+      { name: '스마트 봇 🤖', avatar: '🤖' },
+      { name: '우노 천재 👾', avatar: '👾' },
+      { name: '눈치 빠른 AI 🧠', avatar: '🧠' },
+      { name: '행운의 알파고 🛸', avatar: '🛸' },
+      { name: '카드 카운터 🧮', avatar: '🧮' }
+    ];
+    
+    // 최대 참가자 수(기본값 포함)까지 봇을 자동 생성하여 투입
+    const maxBots = Math.min(room.maxPlayers || 4, 4) - 1; // 기본적으로 유저 1명 + 봇 3마리 = 총 4인 게임 선호
+    const updates = {};
+    
+    for (let i = 0; i < maxBots; i++) {
+      const botId = `bot_${i + 1}_${Math.random().toString(36).substr(2, 5)}`;
+      const botInfo = botNames[i % botNames.length];
+      
+      updates[`rooms/${myRoomCode}/players/${botId}`] = {
+        name: botInfo.name,
+        ready: true,
+        isHost: false,
+        avatar: botInfo.avatar,
+        isBot: true, // 봇 플래그
+        joinedAt: serverTimestamp()
+      };
+    }
+    
+    showToast('컴퓨터 플레이어가 참가했습니다! 봇전을 시작합니다.', 2000);
+    await update(ref(database), updates);
   }
 
   // 방 상태를 'playing'으로 변경 → 모든 클라이언트가 game.html로 이동

@@ -239,6 +239,11 @@ function renderGameState() {
 
   // UNO 패널티 대상이 나면 처리
   handleUnoPenaltyIfTarget();
+
+  // [★ AI 대행 엔진] 봇 플레이어가 현재 차례이고 내가 방장(Host)인 경우 봇 턴 대행 연산 실행
+  if (gameState.currentPlayer && gameState.currentPlayer.startsWith('bot_') && isHost) {
+    triggerBotTurn(gameState.currentPlayer);
+  }
 }
 
 function renderMyHand() {
@@ -1314,3 +1319,266 @@ function showFloatMsg(text, duration = 1500) {
   clearTimeout(floatTimer);
   floatTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
+
+// ─── [★ AI 컴퓨터 플레이어 대행 엔진] ────────────────
+let activeBotThinkings = {}; // 봇 작동 상태 중복 방지 맵
+let botUnoTimer = null;      // 봇 우노 타이밍용 타이머
+
+function triggerBotTurn(botId) {
+  // 이미 해당 봇의 연산이 진행 중이면 무시
+  if (activeBotThinkings[botId]) return;
+  activeBotThinkings[botId] = true;
+
+  // 봇의 자연스러운 고민 시간 부여 (1.2초 ~ 1.8초)
+  const thinkDelay = 1200 + Math.random() * 600;
+
+  setTimeout(async () => {
+    try {
+      await executeBotAction(botId);
+    } catch (e) {
+      console.error(`[AI ${botId}] 행동 수행 중 에러:`, e);
+    } finally {
+      delete activeBotThinkings[botId];
+    }
+  }, thinkDelay);
+}
+
+async function executeBotAction(botId) {
+  // 최신 게임 상태 확인
+  if (!gameState || gameState.currentPlayer !== botId || gameState.finished) return;
+
+  // 1) 봇의 손패 데이터 가져오기
+  const handRef = ref(database, `rooms/${myRoomCode}/hands/${botId}`);
+  const snap = await get(handRef);
+  if (!snap.exists()) return;
+
+  const botHand = Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val());
+  const playerIds = Object.values(gameState.playerOrder || {});
+  const discardArr = Array.isArray(gameState.discardPile)
+    ? gameState.discardPile : Object.values(gameState.discardPile);
+  const topCard = discardArr[discardArr.length - 1];
+
+  // 2) 낼 수 있는 카드들 필터링
+  const playableCards = botHand.filter(card => isValidPlay(card, topCard, gameState.currentColor));
+
+  // 3) [낼 카드가 없는 경우] -> 1장 뽑고 다음 사람에게 넘김
+  if (playableCards.length === 0) {
+    const drawCount = gameState.drawCount > 0 ? gameState.drawCount : 1;
+    const deckData = gameState.deck;
+    let deck = Array.isArray(deckData) ? [...deckData] : Object.values(deckData || {});
+    const drawn = [];
+
+    for (let i = 0; i < drawCount; i++) {
+      if (deck.length === 0) {
+        const reshuffled = shuffleDeck([...discardArr.slice(0, -1)]);
+        deck = reshuffled;
+      }
+      if (deck.length > 0) {
+        drawn.push(deck.shift());
+      }
+    }
+
+    const newHand = [...botHand, ...drawn];
+    const nextPlayer = playerIds[(playerIds.indexOf(botId) + (gameState.direction || 1) + playerIds.length) % playerIds.length];
+    const handCounts = { ...(gameState.handCounts || {}) };
+    handCounts[botId] = newHand.length;
+
+    const updates = {
+      [`rooms/${myRoomCode}/hands/${botId}`]: newHand,
+      [`rooms/${myRoomCode}/gameState/deck`]: deck,
+      [`rooms/${myRoomCode}/gameState/drawCount`]: 0,
+      [`rooms/${myRoomCode}/gameState/currentPlayer`]: nextPlayer,
+      [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+      [`rooms/${myRoomCode}/gameState/lastAction`]: {
+        type: drawCount > 1 ? 'draw_penalty' : 'draw_card',
+        playerName: `컴퓨터(${roomPlayersCache[botId]?.name || '봇'})`,
+        count: drawCount,
+        timestamp: Date.now()
+      }
+    };
+
+    // 만약 봇이 1장 상태였는데 카드를 뽑았다면, 해당 봇의 UNO 선언 자격을 박탈
+    if (gameState.unoCalledBy === botId) {
+      updates[`rooms/${myRoomCode}/gameState/unoCalledBy`] = null;
+      updates[`rooms/${myRoomCode}/gameState/unoTimestamp`] = null;
+    }
+
+    await update(ref(database), updates);
+    playCardDraw();
+    return;
+  }
+
+  // 4) [낼 카드가 있는 경우] -> 인공지능 분석기로 최고의 카드 한 장 선정!
+  const chosenCard = smartChooseCard(playableCards, botHand);
+
+  // 내 손패에서 제거
+  const newHand = botHand.filter(c => c.id !== chosenCard.id);
+
+  // 카드 효과 계산
+  const changes = processCardPlay(chosenCard, gameState, botId, playerIds);
+  const newDiscardPile = [...discardArr, chosenCard];
+
+  // 와일드 카드면 봇의 손패에 가장 많은 유리한 색상을 똑똑하게 계산해서 세팅!
+  let chosenColor = chosenCard.color;
+  if (chosenCard.type === CARD_TYPES.WILD || chosenCard.type === CARD_TYPES.WILD_DRAW_FOUR) {
+    chosenColor = botChooseColor(newHand);
+  }
+
+  // 덱 재섞기 필요 여부
+  const deckData = gameState.deck;
+  let newDeck = Array.isArray(deckData) ? [...deckData] : Object.values(deckData || {});
+  if (newDeck.length < 5) {
+    const reshuffled = shuffleDeck(newDiscardPile.slice(0, -1));
+    newDeck = [...newDeck, ...reshuffled];
+  }
+
+  // 다음 플레이어 결정
+  let nextPlayer = changes.nextPlayer
+    || playerIds[(playerIds.indexOf(botId) + (gameState.direction || 1) + playerIds.length) % playerIds.length];
+
+  const newDrawCount = changes.drawCount;
+  const newDirection = changes.reverseDirection ? -(gameState.direction || 1) : (gameState.direction || 1);
+  const hasWon = newHand.length === 0;
+
+  const handCounts = { ...(gameState.handCounts || {}) };
+  handCounts[botId] = newHand.length;
+
+  const updates = {
+    [`rooms/${myRoomCode}/hands/${botId}`]: newHand,
+    [`rooms/${myRoomCode}/gameState/discardPile`]: newDiscardPile,
+    [`rooms/${myRoomCode}/gameState/deck`]: newDeck,
+    [`rooms/${myRoomCode}/gameState/currentPlayer`]: hasWon ? botId : nextPlayer,
+    [`rooms/${myRoomCode}/gameState/currentColor`]: chosenColor,
+    [`rooms/${myRoomCode}/gameState/direction`]: newDirection,
+    [`rooms/${myRoomCode}/gameState/drawCount`]: newDrawCount,
+    [`rooms/${myRoomCode}/gameState/handCounts`]: handCounts,
+    [`rooms/${myRoomCode}/gameState/lastAction`]: {
+      type: 'play_card',
+      playerName: roomPlayersCache[botId]?.name || '봇',
+      playerId: botId,
+      card: chosenCard,
+      timestamp: Date.now()
+    }
+  };
+
+  if (hasWon) {
+    updates[`rooms/${myRoomCode}/gameState/finished`] = true;
+    updates[`rooms/${myRoomCode}/gameState/winner`] = botId;
+    updates[`rooms/${myRoomCode}/status`] = 'finished';
+    updates[`rooms/${myRoomCode}/winnerName`] = roomPlayersCache[botId]?.name || '봇';
+    updates[`rooms/${myRoomCode}/winnerPlayerId`] = botId;
+  }
+
+  // 5) [🔔 중요: 봇의 우노(UNO) 타이밍 설계]
+  // 봇의 손패가 정확히 1장이 될 때, 봇은 0.9초 뒤에 스스로 '우노!'를 외치게 타이머를 작동합니다.
+  // 이 0.9초 이내에 유저가 재빨리 '우노 잡기!' 버튼을 누르면 봇의 우노가 잡힙니다!
+  if (newHand.length === 1 && !hasWon) {
+    // 이전 타이머 정리
+    if (botUnoTimer) clearTimeout(botUnoTimer);
+
+    // 0.9초 뒤 봇의 우노 자동 등록
+    botUnoTimer = setTimeout(async () => {
+      // 그 사이에 다른 사람에게 잡히지 않고, 봇이 여전히 1장 손패를 들고 있다면
+      const currentSnap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
+      if (!currentSnap.exists()) return;
+      const curState = currentSnap.val();
+      
+      if (curState.handCounts && curState.handCounts[botId] === 1 && !curState.unoCalledBy) {
+        await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+          unoCalledBy: botId,
+          unoTimestamp: Date.now(),
+          lastAction: {
+            type: 'uno_call',
+            playerName: roomPlayersCache[botId]?.name || '봇',
+            playerId: botId,
+            timestamp: Date.now()
+          }
+        });
+        playUnoCall();
+        showFloatMsg(`🔔 컴퓨터(${roomPlayersCache[botId]?.name || '봇'})가 '우노!'를 먼저 외쳤습니다!`, 2000);
+      }
+    }, 900); // 유저가 잡을 수 있는 시간차(0.9초)
+  }
+
+  await update(ref(database), updates);
+  playCardPlay();
+
+  if (chosenCard.type === CARD_TYPES.WILD || chosenCard.type === CARD_TYPES.WILD_DRAW_FOUR) playWild();
+  if (chosenCard.type === CARD_TYPES.DRAW_TWO || chosenCard.type === CARD_TYPES.WILD_DRAW_FOUR) playDrawPenalty();
+  if (hasWon) playLose(); // 봇이 이기면 유저는 패배 효과음
+}
+
+/** 
+ * 똑똑한 카드 선별 인공지능 분석기 
+ * - 상대(특히 유저) 손패가 1~3장이면 공격 카드를 우선적으로 날림!
+ * - 그렇지 않으면 가장 점수가 리스크한 카드(숫자가 크거나 액션 카드) 순으로 방출!
+ */
+function smartChooseCard(playableCards, hand) {
+  if (playableCards.length === 1) return playableCards[0];
+
+  // 다른 플레이어들의 최소 손패 개수 확인
+  let minOpponentCards = 99;
+  if (gameState && gameState.handCounts) {
+    for (const [pid, count] of Object.entries(gameState.handCounts)) {
+      if (pid !== gameState.currentPlayer) {
+        minOpponentCards = Math.min(minOpponentCards, count);
+      }
+    }
+  }
+
+  // 상대방이 3장 이하인 위급 상황인가?
+  const isEmergency = minOpponentCards <= 3;
+
+  if (isEmergency) {
+    // 상대 견제를 위해 강한 공격 카드들을 필터링 (+4, +2, Skip 순)
+    const d4 = playableCards.find(c => c.type === CARD_TYPES.WILD_DRAW_FOUR);
+    if (d4) return d4;
+    const d2 = playableCards.find(c => c.type === CARD_TYPES.DRAW_TWO);
+    if (d2) return d2;
+    const skip = playableCards.find(c => c.type === CARD_TYPES.SKIP);
+    if (skip) return skip;
+  }
+
+  // 특수 견제 상황이 아니거나, 공격 카드가 없는 경우 -> 점수가 가장 높은 카드를 털어서 리스크 회피
+  // (점수 비중: 와일드(50) > 액션카드(20) > 높은 숫자순)
+  return playableCards.reduce((bestCard, card) => {
+    const getWeight = (c) => {
+      if (c.type === CARD_TYPES.WILD_DRAW_FOUR || c.type === CARD_TYPES.WILD) return 50;
+      if (c.type === CARD_TYPES.DRAW_TWO || c.type === CARD_TYPES.SKIP || c.type === CARD_TYPES.REVERSE) return 20;
+      return c.value || 0;
+    };
+    return getWeight(card) > getWeight(bestCard) ? card : bestCard;
+  }, playableCards[0]);
+}
+
+/**
+ * 봇의 영리한 와일드 카드 색상 변경 선택기
+ * 봇이 쥐고 있는 손패 중 "가장 많이 분포한 색상"을 조사해서 똑똑하게 선언함
+ */
+function botChooseColor(botHand) {
+  if (!botHand || botHand.length === 0) return 'red';
+
+  const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
+  botHand.forEach(card => {
+    if (counts[card.color] !== undefined) counts[card.color]++;
+  });
+
+  // 가장 빈도가 높은 색상 리턴
+  let bestColor = 'red';
+  let maxCount = -1;
+  for (const [color, count] of Object.entries(counts)) {
+    if (count > maxCount) {
+      maxCount = count;
+      bestColor = color;
+    }
+  }
+  return bestColor;
+}
+
+// 봇이 동작할 때 플레이어 캐시 맵 갱신을 위해 전역 캐시 갱신 로직 추가
+let roomPlayersCache = {};
+const originalUpdatePlayerSidebars = updatePlayerSidebars;
+updatePlayerSidebars = function(room) {
+  if (room && room.players) roomPlayersCache = room.players;
+  originalUpdatePlayerSidebars(room);
+};

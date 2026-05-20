@@ -84,6 +84,7 @@ function bindEvents() {
 async function handleCreateRoom() {
   const nameInput = document.getElementById('input-create-name');
   const maxPlayersSelect = document.getElementById('select-max-players');
+  const gameTypeSelect = document.getElementById('select-game-type');
 
   const name = nameInput.value.trim();
   if (!name) {
@@ -96,6 +97,7 @@ async function handleCreateRoom() {
   }
 
   const maxPlayers = parseInt(maxPlayersSelect.value);
+  const gameType = gameTypeSelect ? gameTypeSelect.value : 'uno'; // 게임 종류 (없으면 uno 기본값)
   const roomCode = generateRoomCode();
 
   setLoading('btn-do-create', true);
@@ -107,13 +109,14 @@ async function handleCreateRoom() {
       host: myPlayerId,
       status: 'waiting',
       maxPlayers,
+      gameType, // 게임 종류 저장
       createdAt: serverTimestamp(),
       players: {
         [myPlayerId]: {
           name,
           ready: true,
           isHost: true,
-          avatar: selectedAvatar, // 프로필 아바타 추가
+          avatar: selectedAvatar,
           joinedAt: serverTimestamp()
         }
       }
@@ -301,9 +304,14 @@ function listenToRoom(roomCode) {
 
     const room = snapshot.val();
 
-    // 게임 시작 시 game.html로 이동
+    // 게임 시작 시 gameType에 따라 적절한 페이지로 이동
     if (room.status === 'playing') {
-      window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
+      const gameType = room.gameType || 'uno';
+      if (gameType === 'holdem') {
+        window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
+      } else {
+        window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
+      }
       return;
     }
 
@@ -316,6 +324,14 @@ function updateWaitingRoom(room, roomCode) {
   // 방 코드 표시
   const codeEl = document.getElementById('display-room-code');
   if (codeEl) codeEl.textContent = roomCode;
+
+  // 게임 종류 배지 업데이트
+  const badgeEl = document.getElementById('game-type-badge');
+  if (badgeEl) {
+    const gameType = room.gameType || 'uno';
+    badgeEl.textContent = gameType === 'holdem' ? '🎰 텍사스 홀덤 포커' : '🃏 UNO 카드 게임';
+    badgeEl.style.color = gameType === 'holdem' ? '#d4af37' : 'rgba(240,240,255,0.5)';
+  }
 
   // 플레이어 목록 업데이트
   const listEl = document.getElementById('player-list');
@@ -374,11 +390,16 @@ async function rejoinRoom(roomCode) {
 
     const room = snapshot.val();
 
-    // 이미 게임 중이면 바로 game.html로
+    // 이미 게임 중이면 바로 game으로
     if (room.status === 'playing') {
       const players = room.players || {};
       if (players[myPlayerId]) {
-        window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
+        const gameType = room.gameType || 'uno';
+        if (gameType === 'holdem') {
+          window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
+        } else {
+          window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
+        }
         return true;
       }
     }

@@ -432,9 +432,9 @@
       </div>
 
       <div style="display:flex; gap:24px; font-size:0.8rem; color:rgba(240,240,255,0.35); text-align:center;">
-        <div>🃏 108장<br/>표준 덱</div>
-        <div>👥 2~4명<br/>멀티플레이</div>
-        <div>⚡ 실시간<br/>동기화</div>
+        <div>🃏 UNO<br/>카드 게임</div>
+        <div>🎰 텍사스<br/>홀덤 포커</div>
+        <div>⚡ 실시간<br/>멀티플레이</div>
       </div>
     </div>
 
@@ -463,6 +463,14 @@
           <div class="avatar-selector-grid" id="create-avatar-grid">
             <!-- JS에서 동적으로 채움 -->
           </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="select-game-type">게임 종류</label>
+          <select class="select-input" id="select-game-type">
+            <option value="uno">🃏 UNO 카드 게임</option>
+            <option value="holdem">🎰 텍사스 홀덤 포커</option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -545,6 +553,8 @@
           ------
         </div>
         <div class="room-code-copy">클릭하면 복사됩니다</div>
+        <!-- 게임 종류 배지 -->
+        <div id="game-type-badge" style="margin-top:6px; font-size:0.8rem; font-weight:700; color:rgba(240,240,255,0.5);">🃏 UNO 카드 게임</div>
       </div>
 
       <div class="glass-card player-list-wrapper" style="padding:16px 20px; border-radius:16px; width:100%;">

@@ -4,67 +4,106 @@
   <meta charset="UTF-8"/>
   <meta name="darkreader-lock" content="true"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>텍사스 홀덤 포커 — 카드 게임</title>
-  <meta name="description" content="실시간 멀티플레이어 텍사스 홀덤 포커. Fixed Limit 베팅 방식."/>
+  <title>스냅 홀덤 포커 — 살기/죽기/스냅</title>
+  <meta name="description" content="자동배팅 + 스냅 시스템의 텍사스 홀덤 포커. 살기, 죽기, 스냅으로 판돈을 두 배로!"/>
   <link rel="stylesheet" href="css/holdem.css"/>
 </head>
 <body>
 
-  <!-- ── 전체 레이아웃 ── -->
   <div class="holdem-root">
 
-    <!-- ── 좌측: 포커 테이블 영역 ── -->
+    <!-- ── 좌측: 포커 테이블 ── -->
     <div class="poker-table-area" id="poker-table-area">
 
       <!-- 상단: 상대 플레이어들 -->
-      <div class="opponents-area" id="opponents-area">
-        <!-- JS로 동적 렌더 -->
-      </div>
+      <div class="opponents-area" id="opponents-area"></div>
 
       <!-- 중앙: 포커 테이블 -->
       <div class="poker-table" id="poker-table">
-
-        <!-- 팟 표시 -->
         <div class="pot-display">
           <span class="pot-label">팟</span>
           <span class="pot-amount" id="pot-amount">0칩</span>
         </div>
-
-        <!-- 커뮤니티 카드 5장 -->
-        <div class="community-cards" id="community-cards">
-          <!-- JS로 동적 렌더 -->
+        <div class="community-cards" id="community-cards"></div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center;">
+          <div class="phase-badge" id="phase-badge">대기 중</div>
+          <div id="phase-ante" style="font-size:0.72rem; color:rgba(240,240,255,0.45); font-weight:600;"></div>
         </div>
-
-        <!-- 현재 단계 배지 -->
-        <div class="phase-badge" id="phase-badge">대기 중</div>
-
       </div>
 
-      <!-- 내 영역 -->
+      <!-- 내 카드 & 베팅 영역 -->
       <div class="my-area">
-
-        <!-- 내 핸드 카드 -->
-        <div class="my-hand-cards" id="my-hand-cards">
-          <!-- JS로 동적 렌더 -->
-        </div>
-
-        <!-- 내 현재 핸드 랭킹 -->
+        <div class="my-hand-cards" id="my-hand-cards"></div>
         <div class="my-hand-rank" id="my-hand-rank">핸드 대기 중...</div>
-
-        <!-- 내 칩 정보 -->
-        <div class="my-chips-display" id="my-chips">💰 0칩 보유</div>
-
+        <div class="my-chips-display" id="my-chips">💰 0칩</div>
       </div>
 
-      <!-- 베팅 영역 -->
-      <div>
-        <div class="bet-info" id="bet-info">게임 시작을 기다리는 중...</div>
-        <div class="betting-area" id="betting-area">
-          <button class="btn-bet btn-check"  id="btn-check"  disabled>✓ 체크</button>
-          <button class="btn-bet btn-call"   id="btn-call"   disabled>📞 콜</button>
-          <button class="btn-bet btn-raise"  id="btn-raise"  disabled>↑ 레이즈</button>
-          <button class="btn-bet btn-fold"   id="btn-fold"   disabled>✕ 폴드</button>
+      <!-- ── 액션 버튼 영역 ── -->
+      <div class="action-zone">
+
+        <!-- 정보 문구 -->
+        <div class="action-info" id="action-info">게임 시작을 기다리는 중...</div>
+
+        <!-- 스냅 배율 표시 -->
+        <div class="snap-multiplier-row">
+          <span class="snap-label">⚡스냅:</span>
+          <div id="snap-multiplier" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;"></div>
+          <span id="snap-remain" style="font-size:0.7rem; color:rgba(240,240,255,0.4); margin-left:6px;"></span>
         </div>
+
+        <!-- 일반 액션 버튼 (살기/죽기/스냅) -->
+        <div id="normal-actions" class="action-group" style="display:none;">
+          <button id="btn-stay" class="btn-action btn-stay">
+            <span class="btn-icon">✓</span>
+            <div class="btn-text-wrap">
+              <span class="btn-label">살기</span>
+              <span class="btn-sub">생존 유지</span>
+            </div>
+          </button>
+          <button id="btn-snap" class="btn-action btn-snap">
+            <span class="btn-icon">⚡</span>
+            <div class="btn-text-wrap">
+              <span class="btn-label">스냅!</span>
+              <span class="btn-sub">판돈 2배</span>
+            </div>
+          </button>
+          <button id="btn-fold" class="btn-action btn-fold">
+            <span class="btn-icon">✕</span>
+            <div class="btn-text-wrap">
+              <span class="btn-label">죽기</span>
+              <span class="btn-sub">기권</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- 스냅 응답 버튼 (스냅콜/런) -->
+        <div id="snap-actions" class="action-group snap-pending-group" style="display:none;">
+          <div class="snap-alert-box">
+            ⚡ 스냅 발동! 스냅 콜 비용: <strong id="snap-call-cost" style="color:#d4af37;">0</strong>칩
+          </div>
+          <div style="display:flex; gap:12px; justify-content:center; width:100%;">
+            <button id="btn-snap-call" class="btn-action btn-snap-call">
+              <span class="btn-icon">📞</span>
+              <div class="btn-text-wrap">
+                <span class="btn-label">스냅 콜</span>
+                <span class="btn-sub">칩 내고 잔류</span>
+              </div>
+            </button>
+            <button id="btn-snap-fold" class="btn-action btn-run">
+              <span class="btn-icon">🏃</span>
+              <div class="btn-text-wrap">
+                <span class="btn-label">런 (기권)</span>
+                <span class="btn-sub">탈출</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 다음 라운드 버튼 -->
+        <button class="btn-next-round" id="btn-next-round" style="display:none;">
+          🔄 다음 라운드
+        </button>
+
       </div>
 
     </div>
@@ -72,47 +111,36 @@
     <!-- ── 우측: 정보 패널 ── -->
     <div class="info-panel">
 
-      <!-- 게임 정보 섹션 -->
       <div class="info-section">
-        <div class="info-section-title">게임 정보</div>
+        <div class="info-section-title">게임 규칙</div>
         <div class="game-stats">
+          <div class="stat-row">
+            <span class="stat-label">배팅 방식</span>
+            <span class="stat-value" style="font-size:0.7rem;">자동 (1→2→4→8칩)</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">스냅 배율</span>
+            <span class="stat-value gold">×1→×2→×4→×8</span>
+          </div>
           <div class="stat-row">
             <span class="stat-label">단계</span>
             <span class="stat-value" id="stat-phase">-</span>
           </div>
-          <div class="stat-row">
-            <span class="stat-label">레이즈</span>
-            <span class="stat-value" id="stat-raises">0 / 3</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">Fixed Limit</span>
-            <span class="stat-value gold">1 / 2칩</span>
-          </div>
         </div>
       </div>
 
-      <!-- 플레이어 칩 섹션 -->
       <div class="info-section">
         <div class="info-section-title">플레이어 칩</div>
-        <div class="chip-list" id="chip-list">
-          <!-- JS로 동적 렌더 -->
-        </div>
+        <div class="chip-list" id="chip-list"></div>
       </div>
 
-      <!-- 다음 라운드 / 나가기 버튼 -->
-      <div class="info-section" style="display:flex; flex-direction:column; gap:10px;">
-        <button class="btn-next-round" id="btn-next-round" style="display:none;">
-          🔄 다음 라운드
-        </button>
-        <button class="btn-leave-game" id="btn-leave">
-          🚪 나가기
-        </button>
+      <div class="info-section" style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn-leave-game" id="btn-leave">🚪 나가기</button>
       </div>
 
-      <!-- 액션 로그 -->
-      <div class="info-section-title" style="padding:12px 16px 4px; color:rgba(240,240,255,0.35); font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">액션 로그</div>
+      <div class="info-section-title" style="padding:10px 16px 4px; color:rgba(240,240,255,0.35); font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">액션 로그</div>
       <div class="action-log" id="action-log">
-        <div class="log-entry action-deal">🃏 게임 시작을 기다리는 중...</div>
+        <div class="log-entry action-deal">🃏 게임 시작 대기 중...</div>
       </div>
 
     </div>
@@ -124,11 +152,10 @@
     <div class="showdown-box">
       <div class="showdown-title">🏆 게임 종료!</div>
       <div class="showdown-winner-name" id="showdown-winner"></div>
-      <div class="showdown-players" id="showdown-players">
-        <!-- JS로 동적 렌더 -->
-      </div>
-      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-        <button class="btn-next-round" id="btn-next-round-sd" onclick="document.getElementById('btn-next-round').click()" style="display:none;">
+      <div class="showdown-players" id="showdown-players"></div>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
+        <button class="btn-next-round" id="btn-next-round-sd"
+          onclick="document.getElementById('btn-next-round').click()" style="display:none;">
           🔄 다음 라운드
         </button>
         <button class="btn-leave-game" onclick="document.getElementById('btn-leave').click()">
@@ -138,27 +165,21 @@
     </div>
   </div>
 
-  <!-- 플로팅 메시지 -->
   <div id="float-msg"></div>
-
-  <!-- 토스트 -->
   <div id="toast"></div>
 
-  <!-- 홀덤 게임 로직 (ES Module) -->
-  <script type="module" src="js/holdem.js"></script>
-
-  <!-- 쇼다운 오버레이의 다음라운드 버튼 방장 표시 동기화 스크립트 -->
+  <!-- 다음라운드 버튼 오버레이 동기화 -->
   <script>
-    // 다음 라운드 버튼 오버레이 동기화
-    const sdBtn = document.getElementById('btn-next-round-sd');
-    const mainBtn = document.getElementById('btn-next-round');
-    if (sdBtn && mainBtn) {
-      const observer = new MutationObserver(() => {
-        sdBtn.style.display = mainBtn.style.display;
-      });
-      observer.observe(mainBtn, { attributes: true, attributeFilter: ['style'] });
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const main = document.getElementById('btn-next-round');
+      const sd   = document.getElementById('btn-next-round-sd');
+      if (main && sd) {
+        new MutationObserver(() => { sd.style.display = main.style.display; })
+          .observe(main, { attributes: true, attributeFilter: ['style'] });
+      }
+    });
   </script>
 
+  <script type="module" src="js/holdem.js"></script>
 </body>
 </html>

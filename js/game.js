@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════
 
 import {
-  database, ref, set, get, onValue, update, off, remove, serverTimestamp
+  database, ref, set, get, onValue, update, off, remove, serverTimestamp, runTransaction
 } from './firebase-config.js';
 import {
   CARD_TYPES, COLORS, isValidPlay, processCardPlay, initializeGame, shuffleDeck
@@ -708,20 +708,43 @@ function startUnoCooldown() {
 async function doUnoCall() {
   hasCalledUno = true;
 
-  // Firebase에 UNO 선언 기록
-  await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-    unoCalledBy: myPlayerId,
-    unoTimestamp: Date.now(),
-    lastAction: {
-      type: 'uno_call',
-      playerName: myName,
-      playerId: myPlayerId,
-      timestamp: Date.now()
-    }
-  });
+  // Firebase runTransaction을 사용한 원자적 UNO 선언
+  const gameRef = ref(database, `rooms/${myRoomCode}/gameState`);
+  try {
+    const result = await runTransaction(gameRef, (currentData) => {
+      if (!currentData) return currentData;
 
-  playUnoCall();
-  showFloatMsg('UNO!! 🔔', 2000);
+      // 이미 다른 사람에게 잡혔거나(penalty) 다른 사람이 먼저 우노를 선언했다면 롤백
+      if (currentData.unoPenaltyTarget || currentData.unoCalledBy) {
+        return; // 아무것도 변경하지 않고 트랜잭션 중단 (undefined 리턴 시 Abort)
+      }
+
+      // 우노 선언 데이터 세팅
+      currentData.unoCalledBy = myPlayerId;
+      currentData.unoTimestamp = Date.now();
+      currentData.lastAction = {
+        type: 'uno_call',
+        playerName: myName,
+        playerId: myPlayerId,
+        timestamp: Date.now()
+      };
+
+      return currentData;
+    });
+
+    if (!result.committed) {
+      console.warn("[UNO 선언] 찰나의 지연으로 선언에 실패했습니다. (이미 잡혔거나 다른 사람이 먼저 선언함)");
+      showFloatMsg('🚨 우노 선언 타이밍을 놓쳤습니다!', 2000);
+      hasCalledUno = false;
+      checkUnoStatus();
+      return;
+    }
+
+    playUnoCall();
+    showFloatMsg('UNO!! 🔔', 2000);
+  } catch (err) {
+    console.error("[UNO 선언] 트랜잭션 에러:", err);
+  }
 
   // 버튼 잠시 비활성화 (중복 방지)
   const unoBtn = document.getElementById('btn-uno');
@@ -733,23 +756,49 @@ async function doUnoCall() {
 
 /** UNO 잡기 실행 */
 async function doCatchUno(targetPlayerId) {
-  showFloatMsg('🚨 UNO 안 외쳤죠?! 패널티 +2장!', 2500);
+  const gameRef = ref(database, `rooms/${myRoomCode}/gameState`);
+  try {
+    const result = await runTransaction(gameRef, (currentData) => {
+      if (!currentData) return currentData;
 
-  await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-    unoPenaltyTarget: targetPlayerId,
-    unoPenaltyTimestamp: Date.now(), // 고유 패널티 ID (타임스탬프) 부여
-    unoCalledBy: null,
-    unoTimestamp: null,
-    lastAction: {
-      type: 'uno_penalty',
-      playerName: myName,
-      targetPlayerId,
-      timestamp: Date.now()
+      const handCounts = currentData.handCounts || {};
+      const unoCalledBy = currentData.unoCalledBy;
+
+      // 트랜잭션 시점에 이미 대상의 패 개수가 1장이 아니거나, 대상이 이미 우노를 외쳤거나, 이미 다른 사람에 의해 잡힌 상태라면 롤백
+      if (handCounts[targetPlayerId] !== 1 || unoCalledBy === targetPlayerId || currentData.unoPenaltyTarget) {
+        return; // Abort
+      }
+
+      currentData.unoPenaltyTarget = targetPlayerId;
+      currentData.unoPenaltyTimestamp = Date.now();
+      currentData.unoCalledBy = null;
+      currentData.unoTimestamp = null;
+      currentData.lastAction = {
+        type: 'uno_penalty',
+        playerName: myName,
+        targetPlayerId,
+        timestamp: Date.now()
+      };
+
+      return currentData;
+    });
+
+    if (!result.committed) {
+      console.warn("[우노 잡기] 이미 상대가 우노를 외쳤거나 다른 플레이어가 먼저 잡았습니다.");
+      showFloatMsg('🚨 우노 잡기 선점에 실패했습니다!', 2000);
+      checkUnoStatus();
+      return;
     }
-  });
+
+    showFloatMsg('🚨 UNO 안 외쳤죠?! 패널티 +2장!', 2500);
+    playDrawPenalty();
+  } catch (err) {
+    console.error("[우노 잡기] 트랜잭션 에러:", err);
+  }
 
   // 패널티 대상이 나 자신의 클라이언트에서 카드 뽑기 처리
   // → Firebase 리스너가 unoPenaltyTarget을 보고 해당 플레이어가 직접 처리
+  const unoBtn = document.getElementById('btn-uno');
   if (unoBtn) setTimeout(() => { unoBtn.disabled = false; }, 1500);
 }
 
@@ -1612,7 +1661,8 @@ async function executeBotAction(botId) {
     // 이전 타이머 정리
     if (botUnoTimer) clearTimeout(botUnoTimer);
 
-    // 0.9초 뒤 봇의 우노 자동 등록
+    // 0.7초 ~ 1.3초 뒤 봇의 우노 자동 등록 (무작위 지연 적용)
+    const unoDelay = 700 + Math.random() * 600;
     botUnoTimer = setTimeout(async () => {
       // 그 사이에 다른 사람에게 잡히지 않고, 봇이 여전히 1장 손패를 들고 있다면
       const currentSnap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
@@ -1620,20 +1670,38 @@ async function executeBotAction(botId) {
       const curState = currentSnap.val();
       
       if (curState.handCounts && curState.handCounts[botId] === 1 && !curState.unoCalledBy) {
-        await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-          unoCalledBy: botId,
-          unoTimestamp: Date.now(),
-          lastAction: {
-            type: 'uno_call',
-            playerName: roomPlayersCache[botId]?.name || '봇',
-            playerId: botId,
-            timestamp: Date.now()
+        // [원자적 트랜잭션 적용] 봇의 우노 등록도 동시에 일어날 수 있으므로 runTransaction 사용
+        const gameRef = ref(database, `rooms/${myRoomCode}/gameState`);
+        try {
+          const result = await runTransaction(gameRef, (currentData) => {
+            if (!currentData) return currentData;
+
+            // 이미 잡혔거나 다른 사람이 먼저 선언했으면 롤백
+            if (currentData.unoPenaltyTarget || currentData.unoCalledBy) {
+              return; // Abort
+            }
+
+            currentData.unoCalledBy = botId;
+            currentData.unoTimestamp = Date.now();
+            currentData.lastAction = {
+              type: 'uno_call',
+              playerName: roomPlayersCache[botId]?.name || '봇',
+              playerId: botId,
+              timestamp: Date.now()
+            };
+
+            return currentData;
+          });
+
+          if (result.committed) {
+            playUnoCall();
+            showFloatMsg(`🔔 컴퓨터(${roomPlayersCache[botId]?.name || '봇'})가 '우노!'를 먼저 외쳤습니다!`, 2000);
           }
-        });
-        playUnoCall();
-        showFloatMsg(`🔔 컴퓨터(${roomPlayersCache[botId]?.name || '봇'})가 '우노!'를 먼저 외쳤습니다!`, 2000);
+        } catch (err) {
+          console.error("[봇 우노 선언] 트랜잭션 에러:", err);
+        }
       }
-    }, 900); // 유저가 잡을 수 있는 시간차(0.9초)
+    }, unoDelay); // 유저가 잡을 수 있는 시간차 (0.7~1.3초 랜덤)
   }
 
   await update(ref(database), updates);

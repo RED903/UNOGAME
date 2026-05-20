@@ -24,7 +24,8 @@ import {
   update,
   remove,
   off,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // ══════════════════════════════════════════════════
@@ -107,5 +108,6 @@ export {
   update,
   remove,
   off,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 };

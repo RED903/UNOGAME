@@ -227,15 +227,22 @@ function setupListeners() {
 // ─── 버튼 이벤트 ────────────────────────────────────
 
 function setupButtons() {
-  document.getElementById('btn-stay')?.addEventListener('click', handleStayClick);
+  document.getElementById('btn-snap-call')?.addEventListener('click', () => playerAction('snapCall'));
+  document.getElementById('btn-stay')?.addEventListener('click', () => playerAction('stay'));
   document.getElementById('btn-fold')?.addEventListener('click', handleFoldClick);
   document.getElementById('btn-snap')?.addEventListener('click', () => playerAction('snap'));
   document.getElementById('btn-next-round')?.addEventListener('click', handleNextRound);
   document.getElementById('btn-leave')?.addEventListener('click', handleLeave);
 }
 
-function handleStayClick() {
-  playerAction('stay');
+/** 스냅 이후 추가 배팅(스냅콜)이 필요한지 */
+function needsSnapCall(state, pid) {
+  return (state.snapCount ?? 0) > 0 && getBetOwed(state, pid) > 0;
+}
+
+/** 스냅 전 일반 콜이 필요한지 */
+function canRegularCall(state, pid) {
+  return (state.snapCount ?? 0) === 0 && getBetOwed(state, pid) > 0;
 }
 
 function handleFoldClick() {
@@ -295,24 +302,45 @@ async function playerAction(action) {
     logAction.type = 'fold';
 
   } else if (action === 'stay') {
+    if (!canRegularCall(gs, myPlayerId)) {
+      showFloatMsg('지금은 콜이 아닌 스냅콜이 필요합니다.');
+      return;
+    }
     const betCost = getBetOwed(gs, myPlayerId);
-    if (betCost > 0) {
-      const chips = { ...(gs.chipCounts || {}) };
-      if (!payBet(chips, myPlayerId, betCost)) {
-        showFloatMsg('칩이 부족합니다!');
-        return;
-      }
-      const paid = (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
-      updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-      updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
-      updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] = paid;
-      logAction.amount = betCost;
+    const chips = { ...(gs.chipCounts || {}) };
+    if (!payBet(chips, myPlayerId, betCost)) {
+      showFloatMsg('칩이 부족합니다!');
+      return;
     }
     SFX.stay();
-    if ((gs.snapCount ?? 0) > 0) SFX.snapCall();
+    updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
+    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
+    updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
+      (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
+    updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'stay';
+    logAction.type = 'stay';
+    logAction.amount = betCost;
+
+  } else if (action === 'snapCall') {
+    if (!needsSnapCall(gs, myPlayerId)) {
+      showFloatMsg('지금은 스냅콜이 필요하지 않습니다.');
+      return;
+    }
+    const betCost = getBetOwed(gs, myPlayerId);
+    const chips = { ...(gs.chipCounts || {}) };
+    if (!payBet(chips, myPlayerId, betCost)) {
+      showFloatMsg('칩이 부족합니다!');
+      return;
+    }
+    SFX.snapCall();
+    updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
+    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
+    updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
+      (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
     updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] =
       gs.phaseActed?.[myPlayerId] || 'stay';
-    logAction.type = (gs.snapCount ?? 0) > 0 ? 'snapCall' : 'stay';
+    logAction.type = 'snapCall';
+    logAction.amount = betCost;
 
   } else if (action === 'snap') {
     const newMult = (gs.snapMultiplier ?? 1) * 2;
@@ -474,8 +502,8 @@ async function executeBotAction(curGs, botId) {
     && botChips > 15
     && rand < 0.12;
 
-  let action = 'stay';
-  if (canSnap) action = 'snap';
+  let action = needsSnapCall(gs2, botId) ? 'snapCall' : 'stay';
+  if (canSnap && !needsSnapCall(gs2, botId)) action = 'snap';
   else if (rand < 0.18) action = 'fold';
 
   const updates = {};
@@ -487,22 +515,23 @@ async function executeBotAction(curGs, botId) {
   if (action === 'fold') {
     updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
     updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
-  } else if (action === 'stay') {
+  } else if (action === 'stay' || action === 'snapCall') {
     const betCost = getBetOwed(gs2, botId);
-    if (betCost > 0 && !payBet(chips, botId, betCost)) {
+    if (betCost <= 0) {
+      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] =
+        gs2.phaseActed?.[botId] || 'stay';
+    } else if (!payBet(chips, botId, betCost)) {
       updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
       updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
       logAction.type = 'fold';
     } else {
-      if (betCost > 0) {
-        pot += betCost;
-        updates[`rooms/${myRoomCode}/gameState/phasePaid/${botId}`] =
-          (gs2.phasePaid?.[botId] ?? 0) + betCost;
-        logAction.amount = betCost;
-      }
+      pot += betCost;
+      updates[`rooms/${myRoomCode}/gameState/phasePaid/${botId}`] =
+        (gs2.phasePaid?.[botId] ?? 0) + betCost;
       updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] =
         gs2.phaseActed?.[botId] || 'stay';
-      if ((gs2.snapCount ?? 0) > 0) logAction.type = 'snapCall';
+      logAction.type = action === 'snapCall' ? 'snapCall' : 'stay';
+      logAction.amount = betCost;
     }
     updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
     updates[`rooms/${myRoomCode}/gameState/pot`] = pot;
@@ -953,11 +982,12 @@ function renderActionButtons() {
   const isFolded  = gs.folded?.[myPlayerId];
   const isFinished = gs.finished;
   const isMyTurn  = gs.currentActor === myPlayerId && !isFolded && !isFinished;
-  const owed      = getBetOwed(gs, myPlayerId);
-  const isSnapCall = (gs.snapCount ?? 0) > 0 && owed > 0;
-  const canSnap   = (gs.snapCount ?? 0) < (gs.maxSnaps ?? 3) && !gs.playerSnapped?.[myPlayerId];
-  const myChips   = gs.chipCounts?.[myPlayerId] ?? 0;
-  const canAct    = isMyTurn && canActThisTurn(gs, myPlayerId);
+  const owed           = getBetOwed(gs, myPlayerId);
+  const showSnapCall   = needsSnapCall(gs, myPlayerId);
+  const showCall       = canRegularCall(gs, myPlayerId);
+  const canSnap        = (gs.snapCount ?? 0) < (gs.maxSnaps ?? 3) && !gs.playerSnapped?.[myPlayerId];
+  const myChips        = gs.chipCounts?.[myPlayerId] ?? 0;
+  const canAct         = isMyTurn && canActThisTurn(gs, myPlayerId);
 
   // 버튼 그룹 표시/숨김
   const normalActions = document.getElementById('normal-actions');
@@ -968,39 +998,50 @@ function renderActionButtons() {
   if (normalActions) {
     normalActions.style.display = 'flex';
 
+    const snapCallBtn = document.getElementById('btn-snap-call');
     const stayBtn = document.getElementById('btn-stay');
     const snapBtn = document.getElementById('btn-snap');
     const foldBtn = document.getElementById('btn-fold');
 
     const mySnapped = gs.playerSnapped?.[myPlayerId];
-    const isSnapDisabled = !canAct || mySnapped || !canSnap || isSnapCall;
+    const isSnapDisabled = !canAct || mySnapped || !canSnap;
+
+    if (snapCallBtn) {
+      const snapOwed = showSnapCall ? owed : 0;
+      const canAffordSnap = snapOwed > 0 && myChips >= snapOwed;
+      snapCallBtn.style.display = showSnapCall ? 'flex' : 'none';
+      snapCallBtn.disabled = !canAct || !canAffordSnap;
+      const snapLabel = document.getElementById('btn-snap-call-label');
+      const snapSub = document.getElementById('btn-snap-call-sub');
+      if (snapLabel) {
+        snapLabel.textContent = canAffordSnap
+          ? `스냅콜 ${snapOwed}칩`
+          : `칩 부족 (${snapOwed}칩)`;
+      }
+      if (snapSub) snapSub.textContent = '판돈 2배 수락';
+    }
 
     if (stayBtn) {
-      const canAfford = owed <= 0 || myChips >= owed;
-      stayBtn.disabled = !canAct || !canAfford || owed <= 0;
-      const label = owed > 0
-        ? (canAfford
-          ? (isSnapCall ? `스냅콜 ${owed}칩` : `배팅 ${owed}칩`)
-          : `칩 부족 (${owed}칩)`)
-        : '배팅 완료';
-      stayBtn.innerHTML = `
-        <span class="btn-icon">${isSnapCall ? '📞' : '💰'}</span>
-        <div class="btn-text-wrap">
-          <span class="btn-label" id="btn-stay-label">${label}</span>
-          <span class="btn-sub" id="btn-stay-sub">${isSnapCall ? '인상된 가격 수락' : '클릭 시 칩 차감'}</span>
-        </div>
-      `;
+      const callOwed = showCall ? owed : 0;
+      const canAffordCall = callOwed > 0 && myChips >= callOwed;
+      stayBtn.disabled = !canAct || !showCall || !canAffordCall;
+      stayBtn.style.display = 'flex';
+      const stayLabel = document.getElementById('btn-stay-label');
+      const staySub = document.getElementById('btn-stay-sub');
+      if (stayLabel) {
+        stayLabel.textContent = !showCall
+          ? '콜 —'
+          : (canAffordCall ? `콜 ${callOwed}칩` : `칩 부족 (${callOwed}칩)`);
+      }
+      if (staySub) staySub.textContent = '클릭 시 칩 차감';
     }
 
     if (foldBtn) {
       foldBtn.disabled = !canAct;
-      foldBtn.innerHTML = `
-        <span class="btn-icon">✕</span>
-        <div class="btn-text-wrap">
-          <span class="btn-label">${isSnapCall ? '런' : '죽기'}</span>
-          <span class="btn-sub">${isSnapCall ? '기권 탈출' : '포기'}</span>
-        </div>
-      `;
+      const foldLabel = foldBtn.querySelector('.btn-label');
+      const foldSub = foldBtn.querySelector('.btn-sub');
+      if (foldLabel) foldLabel.textContent = showSnapCall ? '런' : '죽기';
+      if (foldSub) foldSub.textContent = showSnapCall ? '기권 탈출' : '포기';
     }
 
     if (snapBtn) {
@@ -1033,10 +1074,12 @@ function renderActionButtons() {
     } else {
       const mult = gs.snapMultiplier ?? 1;
       const ante = gs.phaseAnte ?? calcPhaseBet(gs.phase, mult);
-      if (isSnapCall) {
-        infoEl.textContent = `통과 비용 ${ante}칩 — 스냅콜 ${owed}칩 또는 런`;
+      if (showSnapCall) {
+        infoEl.textContent = `통과 ${ante}칩 — 스냅콜 ${owed}칩 또는 런`;
+      } else if (showCall) {
+        infoEl.textContent = `이번 단계 ${ante}칩 — 콜 / 판돈 2배 / 죽기`;
       } else {
-        infoEl.textContent = `이번 단계 ${ante}칩 · 배팅/판돈 2배/죽기 선택`;
+        infoEl.textContent = `이번 단계 ${ante}칩 · 판돈 2배 / 죽기`;
       }
     }
   }

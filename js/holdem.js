@@ -36,17 +36,39 @@ function canActThisTurn(state, pid) {
   return !state.phaseActed?.[pid];
 }
 
+/** 아직 배팅·스냅콜이 남은 첫 플레이어 (actorOrder 기준) */
+function findFirstPendingActor(state) {
+  const order = state.actorOrder || state.playerOrder || [];
+  for (const pid of order) {
+    if (state.folded?.[pid]) continue;
+    if (!state.phaseActed?.[pid]) return pid;
+  }
+  for (const pid of order) {
+    if (state.folded?.[pid]) continue;
+    if (getBetOwed(state, pid) > 0) return pid;
+  }
+  return null;
+}
+
+function isBettingRoundComplete(state) {
+  return findFirstPendingActor(state) === null;
+}
+
 function advanceActorAfterAction(state, currentPid, extraFolded = {}) {
-  const next = computeNextActor(state, currentPid, extraFolded);
+  const merged = { ...state, folded: { ...(state.folded || {}), ...extraFolded } };
+  const next = computeNextActor(merged, currentPid, extraFolded);
+  const pending = findFirstPendingActor(merged);
+  const resolvedNext = next || (isBettingRoundComplete(merged) ? null : pending);
+
   const updates = {};
-  if (next) {
-    updates[`rooms/${myRoomCode}/gameState/currentActor`] = next;
+  if (resolvedNext) {
+    updates[`rooms/${myRoomCode}/gameState/currentActor`] = resolvedNext;
     updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = false;
   } else {
     updates[`rooms/${myRoomCode}/gameState/currentActor`] = null;
     updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = true;
   }
-  return { next, updates };
+  return { next: resolvedNext, updates };
 }
 
 // ─── 상태 변수 ─────────────────────────────────────
@@ -301,18 +323,39 @@ async function playerAction(action) {
     logAction.amount = owed;
   }
 
+  const projected = applyLocalUpdates(gs, updates);
   const extraFolded = action === 'fold' ? { [myPlayerId]: true } : {};
-  const { next, updates: actorUpdates } = advanceActorAfterAction(
-    { ...gs, ...(action === 'fold' ? { folded: { ...gs.folded, [myPlayerId]: true } } : {}) },
-    myPlayerId,
-    extraFolded
-  );
+  const { next, updates: actorUpdates } = advanceActorAfterAction(projected, myPlayerId, extraFolded);
   Object.assign(updates, actorUpdates);
   updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
 
   await update(ref(database), updates);
 
   if (!next && isHost) setTimeout(() => triggerPhaseComplete(), 400);
+}
+
+/** Firebase update 경로를 반영한 로컬 상태 미리보기 (다음 턴 계산용) */
+function applyLocalUpdates(state, updates) {
+  const next = {
+    ...state,
+    chipCounts: { ...(state.chipCounts || {}) },
+    phasePaid: { ...(state.phasePaid || {}) },
+    folded: { ...(state.folded || {}) },
+    phaseActed: { ...(state.phaseActed || {}) },
+    playerSnapped: { ...(state.playerSnapped || {}) }
+  };
+  const prefix = `rooms/${myRoomCode}/gameState/`;
+
+  for (const [path, value] of Object.entries(updates)) {
+    if (!path.startsWith(prefix)) continue;
+    const parts = path.slice(prefix.length).split('/');
+    if (parts.length === 1) {
+      next[parts[0]] = value;
+    } else if (parts.length === 2) {
+      next[parts[0]] = { ...(next[parts[0]] || {}), [parts[1]]: value };
+    }
+  }
+  return next;
 }
 
 // ─── 호스트 자동 처리 엔진 ───────────────────────────
@@ -330,9 +373,28 @@ function scheduleHostActions() {
     // 활성 플레이어 수 확인
     const active = (cur.playerOrder || []).filter(p => !cur.folded?.[p]);
 
-    // 페이즈 완료 확인
-    if (cur.phaseComplete || !cur.currentActor) {
+    const pending = findFirstPendingActor(cur);
+
+    // 차례 꼬임 복구: currentActor가 행동 불가인데 다른 사람이 대기 중
+    if (pending && (!cur.currentActor || !canActThisTurn(cur, cur.currentActor))) {
+      await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+        currentActor: pending,
+        phaseComplete: false
+      });
+      return;
+    }
+
+    // 페이즈 완료 확인 (모든 배팅이 끝났을 때만)
+    if ((cur.phaseComplete || !cur.currentActor) && isBettingRoundComplete(cur)) {
       await triggerPhaseComplete(cur);
+      return;
+    }
+
+    if ((cur.phaseComplete || !cur.currentActor) && pending) {
+      await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+        currentActor: pending,
+        phaseComplete: false
+      });
       return;
     }
 
@@ -434,8 +496,15 @@ async function executeBotAction(curGs, botId) {
       updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
       updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
       updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-      updates[`rooms/${myRoomCode}/gameState/lastAction`] = { type: 'fold', playerName: botName, amount: 0, timestamp: Date.now() };
+      logAction.type = 'fold';
+      const projected = applyLocalUpdates(gs2, updates);
+      const { next, updates: actorUpdates } = advanceActorAfterAction(
+        projected, botId, { [botId]: true }
+      );
+      Object.assign(updates, actorUpdates);
+      updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
       await update(ref(database), updates);
+      if (!next) setTimeout(() => triggerPhaseComplete(), 400);
       return;
     }
     if (owed > 0) {
@@ -455,11 +524,8 @@ async function executeBotAction(curGs, botId) {
   }
 
   const extraFolded = action === 'fold' ? { [botId]: true } : {};
-  const mergedState = {
-    ...gs2,
-    ...(action === 'fold' ? { folded: { ...gs2.folded, [botId]: true } } : {})
-  };
-  const { next, updates: actorUpdates } = advanceActorAfterAction(mergedState, botId, extraFolded);
+  const projected = applyLocalUpdates(gs2, updates);
+  const { next, updates: actorUpdates } = advanceActorAfterAction(projected, botId, extraFolded);
   Object.assign(updates, actorUpdates);
   updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
 
@@ -477,6 +543,15 @@ async function triggerPhaseComplete(curGs) {
   const gs2 = curGs || snap.val();
 
   if (gs2.finished) return;
+
+  const pending = findFirstPendingActor(gs2);
+  if (pending) {
+    await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+      currentActor: pending,
+      phaseComplete: false
+    });
+    return;
+  }
 
   const playerOrder = gs2.playerOrder || [];
   const folded      = gs2.folded || {};
@@ -703,15 +778,14 @@ function renderOpponents() {
     const avatar   = p.avatar || '🤖';
     const chips    = gs.chipCounts?.[pid] ?? 0;
     const isFolded = gs.folded?.[pid];
-    const isActive = gs.currentActor === pid && !gs.finished;
     const isDealer = (gs.playerOrder?.indexOf(pid) === gs.dealerIndex);
     const isWinner = winners.includes(pid);
     const sdData   = gs.showdownData?.[pid];
 
     // 스냅 응답 대기 표시
     const owesMore = !isFolded && getBetOwed(gs, pid) > 0 && gs.phaseActed?.[pid];
-    const needsResponse = owesMore && gs.currentActor === pid;
-    const waitingRevisit = owesMore && gs.currentActor !== pid;
+    const isActive = gs.currentActor === pid && !gs.finished && canActThisTurn(gs, pid);
+    const waitingRevisit = owesMore && !isActive;
 
     let cardHtml = '';
     if (sdData) {
@@ -733,8 +807,7 @@ function renderOpponents() {
       <div class="p-name">${escapeHtml(name)}</div>
       <div class="p-chips">💰 ${chips}칩</div>
       ${isActive ? '<div class="p-thinking">⏳ 선택 중...</div>' : ''}
-      ${needsResponse ? '<div class="p-thinking snap-anim">📞 스냅콜/런 선택</div>' : ''}
-      ${waitingRevisit ? '<div class="p-thinking">⏳ 추가 배팅 대기</div>' : ''}
+      ${waitingRevisit ? '<div class="p-thinking">⏳ 스냅콜 대기</div>' : ''}
       ${isWinner ? '<div class="p-winner">🏆 승자!</div>' : ''}
       ${sdData ? `<div class="p-hand-rank">${sdData.handRank}</div>` : ''}
     </div>`;

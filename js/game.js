@@ -162,8 +162,6 @@ async function initNewGame(room) {
   const playerIds = [hostId, ...rawPlayerIds.filter(id => id !== hostId)];
 
   const initialState = initializeGame(playerIds, 7);
-  // 첫 턴 플레이어도 항상 방장(나)으로 강제 고정
-  initialState.currentPlayer = hostId;
 
   // 손패는 플레이어별로 분리 저장 (보안)
   const handsUpdate = {};
@@ -427,7 +425,12 @@ function updatePlayerSidebars(room) {
   if (!playersEl || !room.players) return;
 
   const players = room.players;
-  const order = gameState?.playerOrder ? Object.values(gameState.playerOrder) : Object.keys(players);
+  const rawOrder = gameState?.playerOrder ? Object.values(gameState.playerOrder) : Object.keys(players);
+  // 방장(나)이 무조건 플레이어 사이드바 목록의 최상단에 오도록 배치 순서 정렬
+  const hostId = room.host;
+  const order = rawOrder.includes(hostId)
+    ? [hostId, ...rawOrder.filter(id => id !== hostId)]
+    : rawOrder;
   const currentPlayer = gameState?.currentPlayer;
 
   playersEl.innerHTML = order.map(pid => {
@@ -953,8 +956,6 @@ async function handleRestartGame() {
     const playerIds = [hostId, ...rawPlayerIds.filter(id => id !== hostId)];
 
     const initialState = initializeGame(playerIds, 7);
-    // 첫 턴 플레이어도 항상 방장(나)으로 강제 고정
-    initialState.currentPlayer = hostId;
 
     // 손패는 플레이어별로 분리 저장 (보안)
     const handsUpdate = {};

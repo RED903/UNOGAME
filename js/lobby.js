@@ -322,7 +322,12 @@ function updateWaitingRoom(room, roomCode) {
   if (!listEl) return;
 
   const players = room.players || {};
-  const playerEntries = Object.entries(players);
+  // 방장이 무조건 맨 위에 오도록 플레이어 배치 순서 정렬
+  const hostId = room.host;
+  const sortedPlayerIds = [hostId, ...Object.keys(players).filter(id => id !== hostId)];
+  const playerEntries = sortedPlayerIds
+    .map(id => [id, players[id]])
+    .filter(([id, player]) => player !== undefined);
 
   listEl.innerHTML = playerEntries.map(([id, player]) => `
     <div class="player-item ${id === myPlayerId ? 'me' : ''} ${id === room.host ? 'host' : ''}">

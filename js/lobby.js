@@ -344,10 +344,16 @@ function updateWaitingRoom(room, roomCode) {
   if (startBtn) {
     const isHost = room.host === myPlayerId;
     startBtn.style.display = isHost ? 'block' : 'none';
-    startBtn.disabled = playerEntries.length < 2;
-    startBtn.textContent = playerEntries.length < 2
-      ? `시작하기 (최소 2명 필요)`
-      : `🎮 게임 시작! (${playerEntries.length}명)`;
+    
+    if (playerEntries.length === 1) {
+      // 혼자 있을 때도 컴퓨터와 봇전을 시작할 수 있도록 허용!
+      startBtn.disabled = false;
+      startBtn.textContent = `🤖 컴퓨터와 대결 시작!`;
+    } else {
+      // 2명 이상인 멀티플레이어
+      startBtn.disabled = false;
+      startBtn.textContent = `🎮 게임 시작! (${playerEntries.length}명)`;
+    }
   }
 }
 

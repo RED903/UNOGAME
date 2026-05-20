@@ -1162,12 +1162,19 @@ async function sendEmote(emote) {
   isEmoteCooldown = true;
 
   const toggleBtn = document.getElementById('btn-emote-toggle');
-  const originalHtml = toggleBtn ? toggleBtn.innerHTML : '😊';
+  const listEl = document.getElementById('emote-list');
 
+  // [★ 요구사항] 토글 버튼은 쿨타임 중에도 절대 비활성화(disabled)되지 않고 상시 창 여닫기가 가능하도록 유지
   if (toggleBtn) {
     toggleBtn.classList.add('cooldown');
-    toggleBtn.disabled = true;
-    toggleBtn.innerHTML = '⏳';
+  }
+
+  // 대신 이모지 리스트 내부의 개별 이모지 버튼들만 쿨타임으로 비활성화 처리
+  if (listEl) {
+    listEl.querySelectorAll('.emote-btn').forEach(btn => {
+      btn.classList.add('cooldown');
+      btn.disabled = true;
+    });
   }
 
   // Firebase에 저장
@@ -1189,8 +1196,12 @@ async function sendEmote(emote) {
     isEmoteCooldown = false;
     if (toggleBtn) {
       toggleBtn.classList.remove('cooldown');
-      toggleBtn.disabled = false;
-      toggleBtn.innerHTML = originalHtml;
+    }
+    if (listEl) {
+      listEl.querySelectorAll('.emote-btn').forEach(btn => {
+        btn.classList.remove('cooldown');
+        btn.disabled = false;
+      });
     }
   }, 1000);
 }

@@ -609,8 +609,15 @@
 
 /* 감정표현 쿨타임 오버레이 */
 .emote-toggle-btn.cooldown {
-  opacity: 0.5;
+  opacity: 0.7;
+}
+
+/* 개별 이모티콘 쿨타임 비활성화 스타일 */
+.emote-btn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* ─── 내 턴 전체 화면 효과 ──────────────────── */

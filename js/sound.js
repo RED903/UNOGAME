@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════
 
 const VOLUME_KEY = 'uno_audio_volume';
-const DEFAULT_VOLUME = 0.5;
+const DEFAULT_VOLUME = 0.2;
 
 let audioCtx = null;
 

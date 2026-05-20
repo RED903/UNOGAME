@@ -1500,26 +1500,24 @@ function showFloatMsg(text, duration = 1500) {
 }
 
 // ─── [★ 유저 잠수 방지 턴 타임아웃 타이머] ────────────────
+// 30초간 아무 입력이 없으면 자동으로 카드를 드로우함 (UI에는 아무것도 표시하지 않음)
 let turnTimeoutTimer = null;
-let turnTimeLeft = 15;
+let turnTimeLeft = 30;
 
 function startTurnTimeoutTimer() {
   // 이미 타이머가 진행 중이라면 중복 시작 방지
   if (turnTimeoutTimer) return;
 
-  turnTimeLeft = 15; // 15초 제한 시간
-  updateTurnTimerUI();
+  turnTimeLeft = 30; // 30초 제한 시간 (화면에는 표시 안함)
 
   turnTimeoutTimer = setInterval(() => {
     turnTimeLeft--;
-    updateTurnTimerUI();
 
     if (turnTimeLeft <= 0) {
       clearInterval(turnTimeoutTimer);
       turnTimeoutTimer = null;
-      console.log("[잠수 방지] 제한 시간이 만료되어 자동으로 카드를 드로우합니다.");
-      showFloatMsg("⏳ 시간 초과! 카드를 자동으로 한 장 뽑습니다.");
-      // 자동으로 카드 드로우 실행
+      console.log("[잠수 방지] 30초 제한 시간이 만료되어 자동으로 카드를 드로우합니다.");
+      // 조용히 자동으로 카드 드로우 실행 (알림 메시지 없음)
       handleDrawCard();
     }
   }, 1000);
@@ -1530,18 +1528,12 @@ function stopTurnTimeoutTimer() {
     clearInterval(turnTimeoutTimer);
     turnTimeoutTimer = null;
   }
-  // UI 복원
-  const indicatorEl = document.getElementById('my-turn-indicator');
-  if (indicatorEl) {
-    indicatorEl.innerHTML = `⭐ 내 차례입니다! 카드를 선택하세요`;
-  }
+  // 화면에 별도 표시 없음 - 아무것도 바꾸지 않음
 }
 
+// updateTurnTimerUI: 화면 미표시 설정으로 빈 함수 유지
 function updateTurnTimerUI() {
-  const indicatorEl = document.getElementById('my-turn-indicator');
-  if (indicatorEl) {
-    indicatorEl.innerHTML = `⭐ 내 차례입니다! 카드를 선택하세요 <span class="turn-timer" style="color: #ff4757; font-weight: 800; margin-left: 8px; font-family: monospace;">(남은 시간: ${turnTimeLeft}초)</span>`;
-  }
+  // 의도적으로 비워둠 - 남은 시간을 화면에 표시하지 않음
 }
 
 // ─── [★ AI 컴퓨터 플레이어 대행 엔진] ────────────────

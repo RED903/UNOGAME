@@ -35,6 +35,7 @@ let emoteCooldown = false; // 감정표현 쿨타임 (현재 미사용)
 let unoPenaltyTimer = null; // 자동 패널티 타이머 (3초 카운트다운용)
 let isHandlingPenalty = false; // 패널티 중복 처리 방지 락 플래그
 let isLeaving = false;       // 퇴장 중복 방지 플래그
+let isNavigatingToLobby = false; // 대기실 이동 중인지 여부 플래그 (튕김 방지용)
 let unoCooldown = false;     // UNO 버튼 쿨타임 상태 플래그
 let unoCooldownTimer = null; // 쿨타임 타이머
 let lastProcessedPenaltyTimestamp = 0; // 중복 패널티 처리 방지용 타임스탬프
@@ -98,6 +99,7 @@ function listenToGame() {
     isHost = room.host === myPlayerId;
 
     if (room.status === 'waiting') {
+      isNavigatingToLobby = true; // 대기실 복귀 플래그 설정
       // 대기실 상태로 전환: 리스너 먼저 전부 해제 후 이동 (재초기화 타이밍 버그 방지)
       cleanupListeners();
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -1267,6 +1269,7 @@ function showEmotePopupSelf(emote) {
 
 // 브라우저 닫기/새로고침 시 이탈 처리 핸들러
 const handleBeforeUnload = () => {
+  if (isNavigatingToLobby) return; // 대기실 복귀 중일 때는 이탈 처리 스킵!
   leaveGameRoom();
 };
 
@@ -1283,6 +1286,7 @@ function bindGameEvents() {
 
   // 게임 종료 후 대기실 복귀
   document.getElementById('btn-back-lobby')?.addEventListener('click', async () => {
+    isNavigatingToLobby = true; // 대기실 복귀 플래그 설정
     // 리스너 먼저 전부 해제 (이후 Firebase 변경이 루프를 일으키지 않도록)
     cleanupListeners();
     window.removeEventListener('beforeunload', handleBeforeUnload);

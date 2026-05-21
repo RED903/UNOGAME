@@ -125,6 +125,7 @@
       </div>
 
       <div class="info-section" style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn-next-round" id="btn-back-lobby" style="display:none; width:100%; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 대기실로 복귀</button>
         <button class="btn-leave-game" id="btn-leave">🚪 나가기</button>
       </div>
 
@@ -147,6 +148,9 @@
         <button class="btn-next-round" id="btn-next-round-sd"
           onclick="document.getElementById('btn-next-round').click()" style="display:none;">
           🔄 다음 라운드
+        </button>
+        <button class="btn-next-round" id="btn-back-lobby-sd" style="display:none; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+          🏠 대기실로 복귀
         </button>
         <button class="btn-leave-game" onclick="document.getElementById('btn-leave').click()">
           🚪 나가기

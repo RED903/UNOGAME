@@ -97,6 +97,7 @@ function advanceActorAfterAction(state, currentPid, extraFolded = {}) {
 let myPlayerId    = null;
 let myRoomCode    = null;
 let isHost        = false;
+let isNavigatingToLobby = false; // 대기실 복귀 중인지 여부 플래그
 let gs            = null;   // 현재 게임 상태
 let myHoleCards   = [];
 let roomPlayersCache = {};
@@ -165,6 +166,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   setupListeners();
   setupButtons();
+  window.addEventListener('beforeunload', handleBeforeUnload);
 
   if (isHost) {
     const existingGs = (await get(ref(database, `rooms/${myRoomCode}/gameState`))).val();
@@ -180,7 +182,28 @@ function setupListeners() {
   const roomRef = ref(database, `rooms/${myRoomCode}`);
   const u0 = onValue(roomRef, snap => {
     if (!snap.exists()) return;
-    roomPlayersCache = snap.val().players || {};
+    const room = snap.val();
+    roomPlayersCache = room.players || {};
+    isHost = room.host === myPlayerId;
+
+    // 대기실 복귀 감지 및 처리
+    if (room.status === 'waiting') {
+      isNavigatingToLobby = true;
+      unsubList.forEach(u => { try { u(); } catch (e) {} });
+      unsubList.length = 0;
+      clearTimeout(hostTimer);
+      clearTimeout(startRetryTimer);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.location.href = 'index.html';
+      return;
+    }
+
+    // 방장 여부에 따라 '대기실로 복귀' 버튼 보이기/숨기기
+    const backLobbyBtn = document.getElementById('btn-back-lobby');
+    const backLobbySdBtn = document.getElementById('btn-back-lobby-sd');
+    if (backLobbyBtn) backLobbyBtn.style.display = isHost ? 'block' : 'none';
+    if (backLobbySdBtn) backLobbySdBtn.style.display = isHost ? 'block' : 'none';
+
     if (gs) renderOpponents();
   });
   unsubList.push(u0);
@@ -235,6 +258,8 @@ function setupButtons() {
   document.getElementById('btn-snap')?.addEventListener('click', () => playerAction('snap'));
   document.getElementById('btn-next-round')?.addEventListener('click', handleNextRound);
   document.getElementById('btn-leave')?.addEventListener('click', handleLeave);
+  document.getElementById('btn-back-lobby')?.addEventListener('click', handleBackToLobby);
+  document.getElementById('btn-back-lobby-sd')?.addEventListener('click', handleBackToLobby);
 }
 
 function getSnapCallsUsed(state, pid) {
@@ -804,9 +829,56 @@ async function handleNextRound() {
   await startNewRound(true);
 }
 
+// ─── 대기실 복귀 ───────────────────────────────────────
+async function handleBackToLobby() {
+  if (!isHost) return;
+  isNavigatingToLobby = true;
+
+  unsubList.forEach(u => { try { u(); } catch (e) {} });
+  unsubList.length = 0;
+  clearTimeout(hostTimer);
+  clearTimeout(startRetryTimer);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+
+  try {
+    // 대기실 복귀 시 봇(bot_)들을 데이터베이스에서 완벽하게 제거
+    const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
+    const updates = {
+      [`rooms/${myRoomCode}/status`]: 'waiting',
+      [`rooms/${myRoomCode}/gameState`]: null,
+      [`rooms/${myRoomCode}/hands`]: null,
+      [`rooms/${myRoomCode}/emotes`]: null
+    };
+
+    if (roomSnap.exists()) {
+      const roomData = roomSnap.val();
+      const players = roomData.players || {};
+      
+      Object.keys(players).forEach(pid => {
+        if (pid.startsWith('bot_')) {
+          updates[`rooms/${myRoomCode}/players/${pid}`] = null;
+        }
+      });
+    }
+
+    await update(ref(database), updates);
+    window.location.href = 'index.html';
+  } catch (err) {
+    console.error("대기실 복귀 실패:", err);
+    window.location.href = 'index.html';
+  }
+}
+
+// ─── 브라우저 닫기/새로고침 시 이탈 처리 ───────────────────
+const handleBeforeUnload = () => {
+  if (isNavigatingToLobby) return; // 대기실 복귀 중일 때는 이탈 처리 스킵!
+  handleLeave();
+};
+
 // ─── 나가기 ──────────────────────────────────────────
 
 async function handleLeave() {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   unsubList.forEach(u => { try { u(); } catch (e) {} });
   unsubList.length = 0;
   clearTimeout(hostTimer);

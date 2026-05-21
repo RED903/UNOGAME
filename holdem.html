@@ -4,8 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="darkreader-lock" content="true"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>스냅 홀덤 포커 — 살기/죽기/스냅</title>
-  <meta name="description" content="자동배팅 + 스냅 시스템의 텍사스 홀덤 포커. 살기, 죽기, 스냅으로 판돈을 두 배로!"/>
+  <title>텍사스 홀덤 포커 — 기본 베팅 시스템</title>
+  <meta name="description" content="기본 베팅 시스템(체크/콜, 레이즈, 폴드)의 직관적인 텍사스 홀덤 포커 게임입니다."/>
   <link rel="stylesheet" href="css/holdem.css"/>
 </head>
 <body>
@@ -51,27 +51,20 @@
           <span id="snap-remain" style="font-size:0.7rem; color:rgba(240,240,255,0.4); margin-left:6px;"></span>
         </div>
 
-        <!-- 일반 액션 버튼 (스냅콜/콜/판돈2배/죽기) -->
+        <!-- 일반 액션 버튼 (체크/콜, 레이즈, 죽기) -->
         <div id="normal-actions" class="action-group">
-          <button id="btn-snap-call" class="btn-action btn-snap-call" style="display:none;">
-            <span class="btn-icon">📞</span>
-            <div class="btn-text-wrap">
-              <span class="btn-label" id="btn-snap-call-label">스냅콜</span>
-              <span class="btn-sub" id="btn-snap-call-sub">인상 가격 수락</span>
-            </div>
-          </button>
           <button id="btn-stay" class="btn-action btn-stay">
             <span class="btn-icon">💰</span>
             <div class="btn-text-wrap">
-              <span class="btn-label" id="btn-stay-label">콜</span>
-              <span class="btn-sub" id="btn-stay-sub">클릭 시 칩 차감</span>
+              <span class="btn-label" id="btn-stay-label">체크 / 콜</span>
+              <span class="btn-sub" id="btn-stay-sub">금액 자동 차감</span>
             </div>
           </button>
           <button id="btn-snap" class="btn-action btn-snap">
             <span class="btn-icon">⚡</span>
             <div class="btn-text-wrap">
-              <span class="btn-label">스냅</span>
-              <span class="btn-sub">판돈 2배</span>
+              <span class="btn-label" id="btn-snap-label">레이즈</span>
+              <span class="btn-sub" id="btn-snap-sub">판돈 올리기</span>
             </div>
           </button>
           <button id="btn-fold" class="btn-action btn-fold">
@@ -105,16 +98,16 @@
             <span class="stat-value" id="rule-starting-chips" style="font-size:0.7rem; color:#d4af37; font-weight:700;">250 / 500 / 750칩</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">기본 배팅</span>
-            <span class="stat-value" style="font-size:0.7rem;">프리1 → 플2 → 턴4 → 리8</span>
+            <span class="stat-label">블라인드</span>
+            <span class="stat-value" style="font-size:0.7rem; color:#e11d48; font-weight:bold;">SB 2칩 / BB 5칩</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">스냅 / 스냅콜</span>
-            <span class="stat-value gold" style="font-size:0.7rem;">판당 4인↓2·5인↑3회 · 인당 1회</span>
+            <span class="stat-label">베팅 단위</span>
+            <span class="stat-value gold" style="font-size:0.7rem;">프리·플랍 5 / 턴·리버 10</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">단계</span>
-            <span class="stat-value" id="stat-phase">-</span>
+            <span class="stat-label">레이즈 한도</span>
+            <span class="stat-value" style="font-size:0.7rem;">라운드당 최대 3회 (캡)</span>
           </div>
         </div>
       </div>

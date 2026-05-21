@@ -3,33 +3,10 @@
 import { database, ref, update } from './firebase-config.js';
 import { createDeck, shuffleDeck } from './holdem-rules.js';
 
-/** 단계별 기본 배팅 (스냅 배율이 곱해짐) */
-export const PHASE_BASE_ANTES = { preflop: 1, flop: 2, turn: 4, river: 8 };
-const HOLDEM_PHASES = new Set(['waiting', 'preflop', 'flop', 'turn', 'river', 'showdown']);
-
-export function getPhaseBaseAnte(phase) {
-  return PHASE_BASE_ANTES[phase] ?? 1;
-}
-
-/** 이번 단계 1회 배팅액 = 기본 × 판 배율 */
-export function calcPhaseBet(phase, snapMultiplier = 1) {
-  return getPhaseBaseAnte(phase) * snapMultiplier;
-}
-
 export function getStartingChips(n) {
   if (n <= 4) return 250;
   if (n <= 7) return 500;
   return 750;
-}
-
-/** 이번 판에서 판돈 2배(스냅) 가능 횟수 */
-export function getMaxSnaps(n) {
-  return n <= 4 ? 2 : 3;
-}
-
-/** 플레이어당 이번 판 스냅콜 가능 횟수 (인당 1회) */
-export function getMaxSnapCallsPerPlayer() {
-  return 1;
 }
 
 function asArray(val) {
@@ -41,6 +18,8 @@ function asArray(val) {
   return [];
 }
 
+const HOLDEM_PHASES = new Set(['waiting', 'preflop', 'flop', 'turn', 'river', 'showdown']);
+
 /** UNO 등 다른 게임의 gameState와 구분 */
 export function isHoldemGameState(gs) {
   if (!gs || typeof gs !== 'object') return false;
@@ -48,7 +27,7 @@ export function isHoldemGameState(gs) {
   return asArray(gs.playerOrder).length > 0 && gs.chipCounts && typeof gs.chipCounts === 'object';
 }
 
-/** 호스트가 새 라운드를 자동 시작해야 하는지 (종료 후 재시작은 '다음 라운드' 버튼) */
+/** 호스트가 새 라운드를 자동 시작해야 하는지 */
 export function shouldStartHoldemRound(gs) {
   if (!gs) return true;
   if (!isHoldemGameState(gs)) return true;
@@ -67,8 +46,6 @@ export async function startHoldemRound(roomCode, room) {
   const prevGs = room.gameState || {};
   const n = playerIds.length;
   const startChips = getStartingChips(n);
-  const maxSnaps = getMaxSnaps(n);
-  const maxSnapCallsPerPlayer = getMaxSnapCallsPerPlayer();
 
   const prevChips = prevGs.chipCounts || {};
   const chipCounts = {};
@@ -88,9 +65,44 @@ export async function startHoldemRound(roomCode, room) {
     usedCardIds.push(...cards.map(c => c.id));
   }
 
-  const phaseAnte = calcPhaseBet('preflop', 1);
+  // 블라인드 포스팅 로직 (스몰 블라인드 2, 빅 블라인드 5)
+  const currentBets = {};
+  for (const pid of playerIds) {
+    currentBets[pid] = 0;
+  }
 
-  const firstActorIdx = (dealerIndex + 1) % playerIds.length;
+  let pot = 0;
+  const sbAmount = 2;
+  const bbAmount = 5;
+
+  let sbPlayerId, bbPlayerId;
+  if (playerIds.length === 2) {
+    // 2인 헤즈업: 딜러가 SB, 다른 사람이 BB
+    sbPlayerId = playerIds[dealerIndex];
+    bbPlayerId = playerIds[(dealerIndex + 1) % 2];
+  } else {
+    // 3인 이상: 딜러 다음 사람이 SB, 그 다음 사람이 BB
+    sbPlayerId = playerIds[(dealerIndex + 1) % playerIds.length];
+    bbPlayerId = playerIds[(dealerIndex + 2) % playerIds.length];
+  }
+
+  // SB 포스팅 (남은 칩이 부족하면 올인)
+  const sbChips = chipCounts[sbPlayerId] ?? 0;
+  const sbPaid = Math.min(sbChips, sbAmount);
+  chipCounts[sbPlayerId] = sbChips - sbPaid;
+  currentBets[sbPlayerId] = sbPaid;
+  pot += sbPaid;
+
+  // BB 포스팅 (남은 칩이 부족하면 올인)
+  const bbChips = chipCounts[bbPlayerId] ?? 0;
+  const bbPaid = Math.min(bbChips, bbAmount);
+  chipCounts[bbPlayerId] = bbChips - bbPaid;
+  currentBets[bbPlayerId] = bbPaid;
+  pot += bbPaid;
+
+  // 프리플랍 액터 순서 결정 (BB 다음 사람부터 시작)
+  let bbIdx = playerIds.indexOf(bbPlayerId);
+  const firstActorIdx = (bbIdx + 1) % playerIds.length;
   const actorOrder = [];
   for (let i = 0; i < playerIds.length; i++) {
     actorOrder.push(playerIds[(firstActorIdx + i) % playerIds.length]);
@@ -104,29 +116,25 @@ export async function startHoldemRound(roomCode, room) {
     phaseActed: {},
     chipCounts,
     folded: {},
-    pot: 0,
+    pot,
     communityCards: [],
     dealerIndex,
-    phaseAnte,
-    phasePaid: {},
+    currentBet: bbAmount, // 프리플랍 최고 배팅액은 BB 금액인 5
+    currentBets,
+    raiseCount: 0,
     usedCardIds,
-    snapCount: 0,
-    maxSnaps,
-    maxSnapCallsPerPlayer,
-    snapCallCount: {},
-    snapCallAtCount: {},
-    playerSnapped: {},
-    snapMultiplier: 1,
-    snapPending: false,
-    snapCallCost: 0,
-    snapTriggerPid: null,
-    snapResponses: {},
     phaseComplete: false,
     finished: false,
     winner: null,
     winnerHand: null,
     showdownData: null,
-    lastAction: { type: 'deal', playerName: '딜러', amount: 0, timestamp: Date.now() }
+    lastAction: {
+      type: 'deal',
+      playerName: '딜러',
+      amount: 0,
+      detail: `게임 시작! 블라인드 지불 (SB: ${sbPaid}, BB: ${bbPaid})`,
+      timestamp: Date.now()
+    }
   };
 
   await update(ref(database), {
@@ -136,3 +144,4 @@ export async function startHoldemRound(roomCode, room) {
 
   return true;
 }
+

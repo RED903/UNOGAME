@@ -101,8 +101,9 @@ async function handleCreateRoom() {
     return;
   }
 
+  const gameTypeSelect = document.getElementById('select-game-type');
   const maxPlayers = parseInt(maxPlayersSelect.value);
-  const gameType = 'uno';
+  const gameType = gameTypeSelect ? gameTypeSelect.value : 'uno';
   const roomCode = generateRoomCode();
 
   setLoading('btn-do-create', true);

@@ -1,15 +1,14 @@
 // ═══════════════════════════════════════════════════
-// 스냅 홀덤 포커 v2 - 자동배팅 + 스냅 시스템
-// 살기/죽기/스냅 방식, 글로벌 스냅 캡 적용
+// 텍사스 홀덤 포커 - 기본 고정 리밋 베팅 시스템
 // ═══════════════════════════════════════════════════
 
 import {
-  database, ref, get, onValue, update, remove, serverTimestamp
+  database, ref, get, onValue, update, remove
 } from './firebase-config.js';
 import { createDeck, shuffleDeck, determineWinners } from './holdem-rules.js';
 import { renderPokerCardSVG, renderCardBack } from './holdem-renderer.js';
 import {
-  shouldStartHoldemRound, startHoldemRound, calcPhaseBet, getPhaseBaseAnte
+  shouldStartHoldemRound, startHoldemRound, getStartingChips
 } from './holdem-init.js';
 
 // ─── 상수 ──────────────────────────────────────────
@@ -36,10 +35,15 @@ function getActorOrder(state) {
   return order.length ? order : getPlayerOrder(state);
 }
 
+/** 이번 단계 고정 베팅 단위 (프리플랍/플랍: 5, 턴/리버: 10) */
+function getBetUnit(phase) {
+  return (phase === 'preflop' || phase === 'flop') ? 5 : 10;
+}
+
 /** 이번 단계에서 해당 플레이어가 아직 내야 할 칩 */
 function getBetOwed(gs, pid) {
-  const target = gs.phaseAnte ?? calcPhaseBet(gs.phase, gs.snapMultiplier ?? 1);
-  const paid = gs.phasePaid?.[pid] ?? 0;
+  const target = gs.currentBet ?? 0;
+  const paid = gs.currentBets?.[pid] ?? 0;
   return Math.max(0, target - paid);
 }
 
@@ -50,46 +54,33 @@ function payBet(chips, pid, amount) {
   return true;
 }
 
-/** 이번 단계에서 아직 행동·추가 배팅이 필요한지 */
+/** 이번 단계에서 행동이 필요한 상태인지 */
 function canActThisTurn(state, pid) {
   if (state.folded?.[pid]) return false;
+  if ((state.chipCounts?.[pid] ?? 0) <= 0) return false; // 올인한 플레이어는 액션 불가
   if (getBetOwed(state, pid) > 0) return true;
   return !state.phaseActed?.[pid];
 }
 
-/** 아직 배팅·스냅콜이 남은 첫 플레이어 (actorOrder 기준) */
-function findFirstPendingActor(state) {
-  const order = getActorOrder(state);
-  for (const pid of order) {
-    if (state.folded?.[pid]) continue;
-    if (!state.phaseActed?.[pid]) return pid;
-  }
-  for (const pid of order) {
-    if (state.folded?.[pid]) continue;
-    if (getBetOwed(state, pid) > 0) return pid;
-  }
-  return null;
-}
-
+/** 베팅 라운드 종료 조건 체크 */
 function isBettingRoundComplete(state) {
-  return findFirstPendingActor(state) === null;
-}
-
-function advanceActorAfterAction(state, currentPid, extraFolded = {}) {
-  const merged = { ...state, folded: { ...(state.folded || {}), ...extraFolded } };
-  const next = computeNextActor(merged, currentPid, extraFolded);
-  const pending = findFirstPendingActor(merged);
-  const resolvedNext = next || (isBettingRoundComplete(merged) ? null : pending);
-
-  const updates = {};
-  if (resolvedNext) {
-    updates[`rooms/${myRoomCode}/gameState/currentActor`] = resolvedNext;
-    updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = false;
-  } else {
-    updates[`rooms/${myRoomCode}/gameState/currentActor`] = null;
-    updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = true;
+  const order = getPlayerOrder(state);
+  const active = order.filter(pid => !state.folded?.[pid]);
+  
+  // 살아있고 칩이 남아있는 플레이어
+  const activeWithChips = active.filter(pid => (state.chipCounts?.[pid] ?? 0) > 0);
+  
+  // 만약 칩이 있는 플레이어가 1명 이하이면 베팅 불가하므로 즉시 종료
+  if (activeWithChips.length <= 1) {
+    return true;
   }
-  return { next: resolvedNext, updates };
+
+  for (const pid of active) {
+    if ((state.chipCounts?.[pid] ?? 0) <= 0) continue; // 올인은 제외
+    if (!state.phaseActed?.[pid]) return false;
+    if (getBetOwed(state, pid) > 0) return false;
+  }
+  return true;
 }
 
 // ─── 상태 변수 ─────────────────────────────────────
@@ -147,7 +138,6 @@ const SFX = {
 // ─── 초기화 ─────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', async () => {
-  // AudioContext는 사용자 제스처 후에만 생성 가능
   document.addEventListener('click', () => {
     try { getAudioCtx().resume(); } catch (e) {}
   }, { once: true });
@@ -198,7 +188,6 @@ function setupListeners() {
       return;
     }
 
-    // 방장 여부에 따라 '대기실로 복귀' 버튼 보이기/숨기기
     const backLobbyBtn = document.getElementById('btn-back-lobby');
     const backLobbySdBtn = document.getElementById('btn-back-lobby-sd');
     if (backLobbyBtn) backLobbyBtn.style.display = isHost ? 'block' : 'none';
@@ -252,41 +241,13 @@ function setupListeners() {
 // ─── 버튼 이벤트 ────────────────────────────────────
 
 function setupButtons() {
-  document.getElementById('btn-snap-call')?.addEventListener('click', () => playerAction('snapCall'));
   document.getElementById('btn-stay')?.addEventListener('click', () => playerAction('stay'));
-  document.getElementById('btn-fold')?.addEventListener('click', handleFoldClick);
+  document.getElementById('btn-fold')?.addEventListener('click', () => playerAction('fold'));
   document.getElementById('btn-snap')?.addEventListener('click', () => playerAction('snap'));
   document.getElementById('btn-next-round')?.addEventListener('click', handleNextRound);
   document.getElementById('btn-leave')?.addEventListener('click', handleLeave);
   document.getElementById('btn-back-lobby')?.addEventListener('click', handleBackToLobby);
   document.getElementById('btn-back-lobby-sd')?.addEventListener('click', handleBackToLobby);
-}
-
-function getSnapCallsUsed(state, pid) {
-  const raw = state.snapCallCount?.[pid];
-  return typeof raw === 'number' ? raw : 0;
-}
-
-function getMaxSnapCallsLimit(state) {
-  return state.maxSnapCallsPerPlayer ?? 1;
-}
-
-/** 이번 스냅(판돈 2배)에 아직 스냅콜로 수락하지 않았을 때만 */
-function needsSnapCall(state, pid) {
-  if (getBetOwed(state, pid) <= 0) return false;
-  if (getSnapCallsUsed(state, pid) >= getMaxSnapCallsLimit(state)) return false;
-  const respondedAt = state.snapCallAtCount?.[pid] ?? 0;
-  return (state.snapCount ?? 0) > respondedAt;
-}
-
-/** 일반 콜: 스냅 전, 또는 이미 스냅콜로 이번 스냅을 수락한 뒤 */
-function canRegularCall(state, pid) {
-  if (getBetOwed(state, pid) <= 0) return false;
-  return !needsSnapCall(state, pid);
-}
-
-function handleFoldClick() {
-  playerAction('fold');
 }
 
 // ─── 새 라운드 시작 (호스트만) ──────────────────────
@@ -318,105 +279,98 @@ async function startNewRound(force = false) {
   lastLogTs = 0;
 }
 
-// ─── 플레이어 액션 (살기/죽기/스냅) ────────────────
+// ─── 플레이어 액션 (체크/콜, 레이즈, 죽기) ────────────────
 
 async function playerAction(action) {
   if (!gs || gs.finished) return;
-  if (gs.currentActor !== myPlayerId) { showFloatMsg('⚠️ 내 차롴이 아닙니다!'); return; }
+  if (gs.currentActor !== myPlayerId) { showFloatMsg('⚠️ 내 차례가 아닙니다!'); return; }
   if (!canActThisTurn(gs, myPlayerId)) return;
 
   const myName = roomPlayersCache[myPlayerId]?.name || '나';
-
-  if (action === 'snap') {
-    if ((gs.snapCount ?? 0) >= (gs.maxSnaps ?? 3)) { showFloatMsg('🛑 이번 판 스냅이 마감됐습니다!'); return; }
-    if (gs.playerSnapped?.[myPlayerId]) { showFloatMsg('⚠️ 이번 판 스냅은 1회만 가능합니다!'); return; }
-  }
+  const myChips = gs.chipCounts?.[myPlayerId] ?? 0;
+  const owed = getBetOwed(gs, myPlayerId);
 
   const updates = {};
-  const logAction = { type: action, playerName: myName, amount: 0, timestamp: Date.now() };
+  const logAction = { type: action, playerName: myName, amount: 0, detail: '', timestamp: Date.now() };
 
   if (action === 'fold') {
     SFX.fold();
     updates[`rooms/${myRoomCode}/gameState/folded/${myPlayerId}`] = true;
     updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'fold';
     logAction.type = 'fold';
+    logAction.detail = '기권';
 
   } else if (action === 'stay') {
-    if (!canRegularCall(gs, myPlayerId)) {
-      showFloatMsg('지금은 스냅콜로 인상분을 먼저 맞춰야 합니다.');
-      return;
-    }
-    const betCost = getBetOwed(gs, myPlayerId);
+    // 체크 / 콜 처리
     const chips = { ...(gs.chipCounts || {}) };
-    if (!payBet(chips, myPlayerId, betCost)) {
-      showFloatMsg('칩이 부족합니다!');
-      return;
-    }
-    SFX.stay();
-    updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
-    updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
-      (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
-    updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'stay';
-    logAction.type = 'stay';
-    logAction.amount = betCost;
-
-  } else if (action === 'snapCall') {
-    if (!needsSnapCall(gs, myPlayerId)) {
-      const max = getMaxSnapCallsLimit(gs);
-      if ((gs.snapCount ?? 0) > 0 && getSnapCallsUsed(gs, myPlayerId) >= max) {
-        showFloatMsg('이번 판 스냅콜은 1회만 가능합니다. 콜을 사용하세요.');
-      } else {
-        showFloatMsg('지금은 스냅콜이 필요하지 않습니다.');
+    const currentBets = { ...(gs.currentBets || {}) };
+    
+    if (owed === 0) {
+      // 체크
+      SFX.stay();
+      updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'check';
+      logAction.type = 'stay';
+      logAction.detail = '체크';
+    } else {
+      // 콜 (칩이 모자라면 올인 콜)
+      const callCost = Math.min(myChips, owed);
+      if (!payBet(chips, myPlayerId, callCost)) {
+        showFloatMsg('칩이 부족합니다!');
+        return;
       }
-      return;
+      SFX.stay();
+      const isAllIn = (chips[myPlayerId] ?? 0) === 0;
+      updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
+      updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + callCost;
+      currentBets[myPlayerId] = (currentBets[myPlayerId] ?? 0) + callCost;
+      updates[`rooms/${myRoomCode}/gameState/currentBets`] = currentBets;
+      updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'call';
+      
+      logAction.type = 'stay';
+      logAction.amount = callCost;
+      logAction.detail = isAllIn ? '올인 콜' : '콜';
     }
-    const betCost = getBetOwed(gs, myPlayerId);
-    const chips = { ...(gs.chipCounts || {}) };
-    if (!payBet(chips, myPlayerId, betCost)) {
-      showFloatMsg('칩이 부족합니다!');
-      return;
-    }
-    SFX.snapCall();
-    updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + betCost;
-    updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
-      (gs.phasePaid?.[myPlayerId] ?? 0) + betCost;
-    updates[`rooms/${myRoomCode}/gameState/snapCallCount/${myPlayerId}`] =
-      getSnapCallsUsed(gs, myPlayerId) + 1;
-    updates[`rooms/${myRoomCode}/gameState/snapCallAtCount/${myPlayerId}`] =
-      gs.snapCount ?? 0;
-    updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] =
-      gs.phaseActed?.[myPlayerId] || 'stay';
-    logAction.type = 'snapCall';
-    logAction.amount = betCost;
 
   } else if (action === 'snap') {
-    const newMult = (gs.snapMultiplier ?? 1) * 2;
-    const newCount = (gs.snapCount ?? 0) + 1;
-    const newPhaseAnte = calcPhaseBet(gs.phase, newMult);
-    const owed = Math.max(0, newPhaseAnte - (gs.phasePaid?.[myPlayerId] ?? 0));
-    if (owed <= 0) {
-      showFloatMsg('배팅할 금액이 없습니다.');
+    // 레이즈 처리 (btn-snap을 레이즈로 재활용)
+    if ((gs.raiseCount ?? 0) >= 3) {
+      showFloatMsg('⚠️ 이번 단계 레이즈 캡(최대 3회)에 도달했습니다.');
       return;
     }
+
+    const betUnit = getBetUnit(gs.phase);
+    const newBet = (gs.currentBet ?? 0) + betUnit;
+    const raiseCost = newBet - (gs.currentBets?.[myPlayerId] ?? 0);
+
+    if (myChips < raiseCost) {
+      showFloatMsg('⚠️ 칩이 부족하여 레이즈할 수 없습니다!');
+      return;
+    }
+
     const chips = { ...(gs.chipCounts || {}) };
-    if (!payBet(chips, myPlayerId, owed)) {
+    const currentBets = { ...(gs.currentBets || {}) };
+
+    if (!payBet(chips, myPlayerId, raiseCost)) {
       showFloatMsg('칩이 부족합니다!');
       return;
     }
+
     SFX.snap();
+    
     updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + owed;
-    updates[`rooms/${myRoomCode}/gameState/phasePaid/${myPlayerId}`] =
-      (gs.phasePaid?.[myPlayerId] ?? 0) + owed;
-    updates[`rooms/${myRoomCode}/gameState/phaseActed/${myPlayerId}`] = 'snap';
-    updates[`rooms/${myRoomCode}/gameState/snapCount`] = newCount;
-    updates[`rooms/${myRoomCode}/gameState/snapMultiplier`] = newMult;
-    updates[`rooms/${myRoomCode}/gameState/phaseAnte`] = newPhaseAnte;
-    updates[`rooms/${myRoomCode}/gameState/playerSnapped/${myPlayerId}`] = true;
+    updates[`rooms/${myRoomCode}/gameState/pot`] = (gs.pot ?? 0) + raiseCost;
+    currentBets[myPlayerId] = (currentBets[myPlayerId] ?? 0) + raiseCost;
+    updates[`rooms/${myRoomCode}/gameState/currentBets`] = currentBets;
+    updates[`rooms/${myRoomCode}/gameState/currentBet`] = newBet;
+    updates[`rooms/${myRoomCode}/gameState/raiseCount`] = (gs.raiseCount ?? 0) + 1;
+
+    // 레이즈가 발생했으므로 다른 모든 사람들의 phaseActed를 초기화하여 다시 배팅을 맞추게 함
+    const nextPhaseActed = { [myPlayerId]: 'raise' };
+    updates[`rooms/${myRoomCode}/gameState/phaseActed`] = nextPhaseActed;
+
     logAction.type = 'snap';
-    logAction.amount = owed;
+    logAction.amount = raiseCost;
+    logAction.detail = `레이즈 (+${betUnit}칩, 총 ${newBet}칩)`;
   }
 
   const projected = applyLocalUpdates(gs, updates);
@@ -430,15 +384,29 @@ async function playerAction(action) {
   if (!next && isHost) setTimeout(() => triggerPhaseComplete(), 400);
 }
 
-/** Firebase update 경로를 반영한 로컬 상태 미리보기 (다음 턴 계산용) */
+function advanceActorAfterAction(state, currentPid, extraFolded = {}) {
+  const merged = { ...state, folded: { ...(state.folded || {}), ...extraFolded } };
+  const next = computeNextActor(merged, currentPid, extraFolded);
+
+  const updates = {};
+  if (next) {
+    updates[`rooms/${myRoomCode}/gameState/currentActor`] = next;
+    updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = false;
+  } else {
+    updates[`rooms/${myRoomCode}/gameState/currentActor`] = null;
+    updates[`rooms/${myRoomCode}/gameState/phaseComplete`] = true;
+  }
+  return { next, updates };
+}
+
+/** Firebase update 경로를 반영한 로컬 상태 미리보기 */
 function applyLocalUpdates(state, updates) {
   const next = {
     ...state,
     chipCounts: { ...(state.chipCounts || {}) },
-    phasePaid: { ...(state.phasePaid || {}) },
+    currentBets: { ...(state.currentBets || {}) },
     folded: { ...(state.folded || {}) },
-    phaseActed: { ...(state.phaseActed || {}) },
-    playerSnapped: { ...(state.playerSnapped || {}) }
+    phaseActed: { ...(state.phaseActed || {}) }
   };
   const prefix = `rooms/${myRoomCode}/gameState/`;
 
@@ -469,72 +437,68 @@ function scheduleHostActions() {
     // 활성 플레이어 수 확인
     const active = getPlayerOrder(cur).filter(p => !cur.folded?.[p]);
 
-    const pending = findFirstPendingActor(cur);
-
-    // 차례 꼬임 복구: currentActor가 행동 불가인데 다른 사람이 대기 중
-    if (pending && (!cur.currentActor || !canActThisTurn(cur, cur.currentActor))) {
-      await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-        currentActor: pending,
-        phaseComplete: false
-      });
+    // 1명 이하 생존 감지 시 조기 종료
+    if (active.length <= 1) {
+      await endHandEarly(active, cur);
       return;
     }
 
-    // 페이즈 완료 확인 (모든 배팅이 끝났을 때만)
-    if ((cur.phaseComplete || !cur.currentActor) && isBettingRoundComplete(cur)) {
+    // 턴이 돌 사람 구하기
+    const order = getActorOrder(cur);
+    let nextActor = cur.currentActor;
+
+    // 현재 액터가 유효하지 않거나 액션 불가인 경우 복구
+    if (!nextActor || cur.folded?.[nextActor] || (cur.chipCounts?.[nextActor] ?? 0) <= 0) {
+      // 딜러 다음의 첫 살아있고 칩 있는 사람 찾기
+      const pending = order.find(pid => !cur.folded?.[pid] && (cur.chipCounts?.[pid] ?? 0) > 0 && (!cur.phaseActed?.[pid] || getBetOwed(cur, pid) > 0));
+      if (pending) {
+        await update(ref(database, `rooms/${myRoomCode}/gameState`), {
+          currentActor: pending,
+          phaseComplete: false
+        });
+        return;
+      }
+    }
+
+    // 페이즈 완료 확인
+    if (isBettingRoundComplete(cur)) {
       await triggerPhaseComplete(cur);
       return;
     }
 
-    if ((cur.phaseComplete || !cur.currentActor) && pending) {
-      await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-        currentActor: pending,
-        phaseComplete: false
-      });
-      return;
-    }
-
-    // 봇 차례
+    // 봇 차례 자동화
     if (cur.currentActor?.startsWith('bot_') && canActThisTurn(cur, cur.currentActor)) {
       await executeBotAction(cur, cur.currentActor);
       return;
     }
-
-    // 1명 이하 생존 감지
-    if (active.length <= 1 && !cur.finished) {
-      await endHandEarly(active, cur);
-    }
   }, 600);
 }
 
-// 다음 액터 계산 (미행동자 → 스냅으로 부족한 사람 순, 시계 방향 한 바퀴)
+// 다음 액터 계산
 function computeNextActor(state, currentPid, extraFolded = {}) {
   const order  = getActorOrder(state);
   const folded = { ...(state.folded || {}), ...extraFolded };
   const curIdx = order.indexOf(currentPid);
   if (curIdx < 0) return null;
 
-  const findFrom = (start) => {
-    for (let i = 1; i <= order.length; i++) {
-      const pid = order[(start + i) % order.length];
-      if (folded[pid]) continue;
-      if (!state.phaseActed?.[pid]) return pid;
-    }
-    for (let i = 1; i <= order.length; i++) {
-      const pid = order[(start + i) % order.length];
-      if (folded[pid]) continue;
-      if (getBetOwed(state, pid) > 0) return pid;
-    }
-    return null;
-  };
+  // 다음 사람부터 시계방향으로 1바퀴 돌면서 의사결정이 안 끝난 첫 사람을 찾음
+  for (let i = 1; i <= order.length; i++) {
+    const pid = order[(curIdx + i) % order.length];
+    if (folded[pid]) continue;
+    if ((state.chipCounts?.[pid] ?? 0) <= 0) continue; // 올인한 플레이어는 건너뜀
 
-  return findFrom(curIdx);
+    const owed = (state.currentBet ?? 0) - (state.currentBets?.[pid] ?? 0);
+    if (!state.phaseActed?.[pid] || owed > 0) {
+      return pid;
+    }
+  }
+
+  return null;
 }
 
 // ─── 봇 액션 ─────────────────────────────────────────
 
 async function executeBotAction(curGs, botId) {
-  // 딜레이 후 최신 상태 재확인
   await new Promise(r => setTimeout(r, 700 + Math.random() * 1100));
   const snap = await get(ref(database, `rooms/${myRoomCode}/gameState`));
   if (!snap.exists()) return;
@@ -543,87 +507,86 @@ async function executeBotAction(curGs, botId) {
 
   const botName  = roomPlayersCache[botId]?.name || '봇';
   const botChips = gs2.chipCounts?.[botId] ?? 0;
+  const owed     = getBetOwed(gs2, botId);
   const rand     = Math.random();
 
-  // 봇 스냅 가능 여부
-  const canSnap = (gs2.snapCount ?? 0) < (gs2.maxSnaps ?? 3)
-    && !gs2.playerSnapped?.[botId]
-    && botChips > 15
-    && rand < 0.12;
+  const betUnit = getBetUnit(gs2.phase);
+  const newBet = (gs2.currentBet ?? 0) + betUnit;
+  const raiseCost = newBet - (gs2.currentBets?.[botId] ?? 0);
+  const canRaise = (gs2.raiseCount ?? 0) < 3 && botChips >= raiseCost;
 
-  let action = needsSnapCall(gs2, botId) ? 'snapCall' : 'stay';
-  if (canSnap && !needsSnapCall(gs2, botId)) action = 'snap';
-  else if (rand < 0.18) action = 'fold';
+  let action = 'stay'; // 기본은 체크 / 콜
+  
+  if (owed === 0) {
+    // 체크 가능할 때: 85% 체크, 15% 레이즈
+    if (canRaise && rand < 0.15) {
+      action = 'snap';
+    } else {
+      action = 'stay';
+    }
+  } else {
+    // 콜해야 할 때: 15% 폴드, 70% 콜, 15% 레이즈
+    if (rand < 0.15) {
+      action = 'fold';
+    } else if (canRaise && rand > 0.85) {
+      action = 'snap';
+    } else {
+      action = 'stay';
+    }
+  }
 
   const updates = {};
-  const logAction = { type: action, playerName: botName, amount: 0, timestamp: Date.now() };
+  const logAction = { type: action, playerName: botName, amount: 0, detail: '', timestamp: Date.now() };
 
   const chips = { ...(gs2.chipCounts || {}) };
+  const currentBets = { ...(gs2.currentBets || {}) };
   let pot = gs2.pot ?? 0;
 
   if (action === 'fold') {
     updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
     updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
-  } else if (action === 'stay' || action === 'snapCall') {
-    const betCost = getBetOwed(gs2, botId);
-    if (betCost <= 0) {
-      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] =
-        gs2.phaseActed?.[botId] || 'stay';
-    } else if (!payBet(chips, botId, betCost)) {
-      updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
-      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
-      logAction.type = 'fold';
+    logAction.type = 'fold';
+    logAction.detail = '기권';
+
+  } else if (action === 'stay') {
+    if (owed === 0) {
+      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'check';
+      logAction.type = 'stay';
+      logAction.detail = '체크';
     } else {
-      pot += betCost;
-      updates[`rooms/${myRoomCode}/gameState/phasePaid/${botId}`] =
-        (gs2.phasePaid?.[botId] ?? 0) + betCost;
-      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] =
-        gs2.phaseActed?.[botId] || 'stay';
-      logAction.type = action === 'snapCall' ? 'snapCall' : 'stay';
-      logAction.amount = betCost;
-      if (action === 'snapCall') {
-        updates[`rooms/${myRoomCode}/gameState/snapCallCount/${botId}`] =
-          getSnapCallsUsed(gs2, botId) + 1;
-        updates[`rooms/${myRoomCode}/gameState/snapCallAtCount/${botId}`] =
-          gs2.snapCount ?? 0;
-      }
-    }
-    updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-    updates[`rooms/${myRoomCode}/gameState/pot`] = pot;
-  } else if (action === 'snap') {
-    const newMult = (gs2.snapMultiplier ?? 1) * 2;
-    const newCount = (gs2.snapCount ?? 0) + 1;
-    const newPhaseAnte = calcPhaseBet(gs2.phase, newMult);
-    const owed = Math.max(0, newPhaseAnte - (gs2.phasePaid?.[botId] ?? 0));
-    if (owed > 0 && !payBet(chips, botId, owed)) {
-      updates[`rooms/${myRoomCode}/gameState/folded/${botId}`] = true;
-      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'fold';
+      const callCost = Math.min(botChips, owed);
+      payBet(chips, botId, callCost);
+      const isAllIn = (chips[botId] ?? 0) === 0;
+      pot += callCost;
+      currentBets[botId] = (currentBets[botId] ?? 0) + callCost;
+      
       updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
-      logAction.type = 'fold';
-      const projected = applyLocalUpdates(gs2, updates);
-      const { next, updates: actorUpdates } = advanceActorAfterAction(
-        projected, botId, { [botId]: true }
-      );
-      Object.assign(updates, actorUpdates);
-      updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
-      await update(ref(database), updates);
-      if (!next) setTimeout(() => triggerPhaseComplete(), 400);
-      return;
+      updates[`rooms/${myRoomCode}/gameState/pot`] = pot;
+      updates[`rooms/${myRoomCode}/gameState/currentBets`] = currentBets;
+      updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'call';
+      
+      logAction.type = 'stay';
+      logAction.amount = callCost;
+      logAction.detail = isAllIn ? '올인 콜' : '콜';
     }
-    if (owed > 0) {
-      pot += owed;
-      updates[`rooms/${myRoomCode}/gameState/phasePaid/${botId}`] =
-        (gs2.phasePaid?.[botId] ?? 0) + owed;
-    }
+
+  } else if (action === 'snap') {
+    payBet(chips, botId, raiseCost);
+    pot += raiseCost;
+    currentBets[botId] = (currentBets[botId] ?? 0) + raiseCost;
+
     updates[`rooms/${myRoomCode}/gameState/chipCounts`] = chips;
     updates[`rooms/${myRoomCode}/gameState/pot`] = pot;
-    updates[`rooms/${myRoomCode}/gameState/phaseActed/${botId}`] = 'snap';
-    updates[`rooms/${myRoomCode}/gameState/snapCount`] = newCount;
-    updates[`rooms/${myRoomCode}/gameState/snapMultiplier`] = newMult;
-    updates[`rooms/${myRoomCode}/gameState/phaseAnte`] = newPhaseAnte;
-    updates[`rooms/${myRoomCode}/gameState/playerSnapped/${botId}`] = true;
+    updates[`rooms/${myRoomCode}/gameState/currentBets`] = currentBets;
+    updates[`rooms/${myRoomCode}/gameState/currentBet`] = newBet;
+    updates[`rooms/${myRoomCode}/gameState/raiseCount`] = (gs2.raiseCount ?? 0) + 1;
+    
+    const nextPhaseActed = { [botId]: 'raise' };
+    updates[`rooms/${myRoomCode}/gameState/phaseActed`] = nextPhaseActed;
+
     logAction.type = 'snap';
-    logAction.amount = owed;
+    logAction.amount = raiseCost;
+    logAction.detail = `레이즈 (+${betUnit}칩, 총 ${newBet}칩)`;
   }
 
   const extraFolded = action === 'fold' ? { [botId]: true } : {};
@@ -646,15 +609,6 @@ async function triggerPhaseComplete(curGs) {
   const gs2 = curGs || snap.val();
 
   if (gs2.finished) return;
-
-  const pending = findFirstPendingActor(gs2);
-  if (pending) {
-    await update(ref(database, `rooms/${myRoomCode}/gameState`), {
-      currentActor: pending,
-      phaseComplete: false
-    });
-    return;
-  }
 
   const playerOrder = getPlayerOrder(gs2);
   const folded      = gs2.folded || {};
@@ -679,7 +633,6 @@ async function triggerPhaseComplete(curGs) {
 async function advancePhase(curGs, active, nextPhase) {
   if (!isHost) return;
 
-  // 커뮤니티 카드 딜 (사용된 카드 제외)
   const usedSet  = new Set(curGs.usedCardIds || []);
   const freshDeck = shuffleDeck(createDeck()).filter(c => !usedSet.has(c.id));
   const existing = curGs.communityCards || [];
@@ -696,23 +649,22 @@ async function advancePhase(curGs, active, nextPhase) {
     newUsed.push(card.id);
   }
 
-  const snapMult = curGs.snapMultiplier ?? 1;
-  const phaseAnte = calcPhaseBet(nextPhase, snapMult);
-
-  // 액터 순서 (딜러 다음 살아있는 사람부터)
+  // 액터 순서 (딜러 다음 살아있는 사람부터 순서대로)
   const playerOrder = getPlayerOrder(curGs);
   const dealerIdx = curGs.dealerIndex ?? 0;
   const actorOrder = [];
   const newFolded = { ...(curGs.folded || {}) };
   for (let i = 1; i <= playerOrder.length; i++) {
     const pid = playerOrder[(dealerIdx + i) % playerOrder.length];
-    if (!newFolded[pid]) actorOrder.push(pid);
+    if (!newFolded[pid] && (curGs.chipCounts?.[pid] ?? 0) > 0) {
+      actorOrder.push(pid);
+    }
   }
 
-  const stillActive = active.filter(p => !newFolded[p]);
-  if (stillActive.length <= 1) {
-    await endHandEarly(stillActive, { ...curGs, folded: newFolded, communityCards: newComm });
-    return;
+  // 매 페이즈마다 배팅 초기화
+  const currentBets = {};
+  for (const pid of playerOrder) {
+    currentBets[pid] = 0;
   }
 
   SFX.chip();
@@ -722,19 +674,18 @@ async function advancePhase(curGs, active, nextPhase) {
     communityCards: newComm,
     usedCardIds: newUsed,
     folded: newFolded,
-    phaseAnte,
-    phasePaid: {},
+    currentBet: 0,
+    currentBets,
+    raiseCount: 0,
     actorOrder,
     currentActor: actorOrder[0] || null,
     phaseActed: {},
     phaseComplete: false,
-    snapPending: false,
-    snapResponses: {},
     lastAction: {
       type: 'deal',
       playerName: '딜러',
       amount: 0,
-      detail: `${PHASE_NAMES[nextPhase]} · 배팅 ${phaseAnte}칩 (×${snapMult})`,
+      detail: `${PHASE_NAMES[nextPhase]} 오픈 · 베팅 단위: ${getBetUnit(nextPhase)}칩`,
       timestamp: Date.now()
     }
   });
@@ -841,7 +792,6 @@ async function handleBackToLobby() {
   window.removeEventListener('beforeunload', handleBeforeUnload);
 
   try {
-    // 대기실 복귀 시 봇(bot_)들을 데이터베이스에서 완벽하게 제거
     const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
     const updates = {
       [`rooms/${myRoomCode}/status`]: 'waiting',
@@ -871,7 +821,7 @@ async function handleBackToLobby() {
 
 // ─── 브라우저 닫기/새로고침 시 이탈 처리 ───────────────────
 const handleBeforeUnload = () => {
-  if (isNavigatingToLobby) return; // 대기실 복귀 중일 때는 이탈 처리 스킵!
+  if (isNavigatingToLobby) return;
   handleLeave();
 };
 
@@ -932,14 +882,11 @@ function renderOpponents() {
     const isWinner = winners.includes(pid);
     const sdData   = gs.showdownData?.[pid];
 
-    // 스냅 응답 대기 표시
     const owesMore = !isFolded && getBetOwed(gs, pid) > 0 && gs.phaseActed?.[pid];
     const isActive = gs.currentActor === pid && !gs.finished && canActThisTurn(gs, pid);
-    const waitingRevisit = owesMore && !isActive;
 
     let cardHtml = '';
     if (sdData) {
-      // 쇼다운: 카드 공개
       cardHtml = `<div class="opponent-cards">${(sdData.cards || []).map(c =>
         `<div style="border-radius:5px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.8);">${renderPokerCardSVG(c, { width: 48, height: 69, highlight: isWinner })}</div>`
       ).join('')}</div>`;
@@ -950,21 +897,20 @@ function renderOpponents() {
       ).join('')}</div>`;
     }
 
-    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''} ${waitingRevisit ? 'needs-response' : ''}">
+    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''}">
       ${isDealer ? '<div class="dealer-chip">D</div>' : ''}
       <div class="p-avatar">${avatar}</div>
       ${cardHtml}
       <div class="p-name">${escapeHtml(name)}</div>
-      <div class="p-chips">💰 ${chips}칩</div>
+      <div class="p-chips">💰 ${chips}칩 (낸 액수: ${gs.currentBets?.[pid] ?? 0})</div>
       ${isActive ? '<div class="p-thinking">⏳ 선택 중...</div>' : ''}
-      ${waitingRevisit ? '<div class="p-thinking">⏳ 스냅콜 대기</div>' : ''}
       ${isWinner ? '<div class="p-winner">🏆 승자!</div>' : ''}
       ${sdData ? `<div class="p-hand-rank">${sdData.handRank}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-// ─── 커뮤니티 카드 (애니메이션 최적화) ───────────────
+// ─── 커뮤니티 카드 ───────────────────────────────────
 
 function renderCommunityCards(animateFromIdx = -1) {
   const area = document.getElementById('community-cards');
@@ -979,7 +925,6 @@ function renderCommunityCards(animateFromIdx = -1) {
 
     if (card) {
       el.style.cssText = 'border-radius:8px; overflow:hidden;';
-      // 새로 깔린 카드만 애니메이션 적용
       if (animateFromIdx >= 0 && i >= animateFromIdx) {
         el.className = 'community-card';
         el.style.animationDelay = `${(i - animateFromIdx) * 0.12}s`;
@@ -1046,38 +991,26 @@ function renderPhaseInfo() {
 
   const anteEl = document.getElementById('phase-ante');
   if (anteEl) {
-    const base = getPhaseBaseAnte(gs.phase);
-    const mult = gs.snapMultiplier ?? 1;
-    const ante = gs.phaseAnte ?? calcPhaseBet(gs.phase, mult);
-    anteEl.textContent = `이번 단계: ${ante}칩 (기본 ${base} × ${mult})`;
+    const betUnit = getBetUnit(gs.phase);
+    anteEl.textContent = `베팅 단위: ${betUnit}칩 (현재 최고 배팅액: ${gs.currentBet ?? 0}칩)`;
   }
 
   const statPhase = document.getElementById('stat-phase');
   if (statPhase) statPhase.textContent = PHASE_NAMES[gs.phase] || '-';
 }
 
-// ─── 스냅 정보 ───────────────────────────────────────
+// ─── 베팅 정보 표시 (스냅 대체) ───────────────────────────
 
 function renderSnapInfo() {
   const container = document.getElementById('snap-multiplier');
   if (!container || !gs) return;
 
-  const mult = gs.snapMultiplier ?? 1;
-  const nextPhases = PHASE_ORDER.filter(p => PHASE_ORDER.indexOf(p) >= PHASE_ORDER.indexOf(gs.phase));
-  const preview = nextPhases.map(p => `${PHASE_NAMES[p]} ${calcPhaseBet(p, mult)}`).join(' → ');
-
-  container.innerHTML = `<span style="font-size:0.78rem;color:#d4af37;font-weight:700;">판 배율 ×${mult}</span>`;
+  container.innerHTML = `<span style="font-size:0.78rem;color:#d4af37;font-weight:700;">기본 베팅 시스템</span>`;
 
   const remainEl = document.getElementById('snap-remain');
   if (remainEl) {
-    const maxSnap = gs.maxSnaps ?? 3;
-    const snapUsed = gs.snapCount ?? 0;
-    const maxCall = getMaxSnapCallsLimit(gs);
-    const myCallUsed = getSnapCallsUsed(gs, myPlayerId);
-    const snapCallLeft = maxCall - myCallUsed;
-    remainEl.textContent = preview
-      ? `남은 단계: ${preview} · 판 스냅 ${maxSnap - snapUsed}/${maxSnap} · 내 스냅콜 ${snapCallLeft > 0 ? '가능' : '사용함'}`
-      : '';
+    const raiseCount = gs.raiseCount ?? 0;
+    remainEl.textContent = `이번 라운드 레이즈 횟수: ${raiseCount}/3회`;
   }
 }
 
@@ -1090,79 +1023,63 @@ function renderActionButtons() {
   const isFinished = gs.finished;
   const isMyTurn  = gs.currentActor === myPlayerId && !isFolded && !isFinished;
   const owed           = getBetOwed(gs, myPlayerId);
-  const showSnapCall   = needsSnapCall(gs, myPlayerId);
-  const showCall       = canRegularCall(gs, myPlayerId);
-  const canSnap        = (gs.snapCount ?? 0) < (gs.maxSnaps ?? 3) && !gs.playerSnapped?.[myPlayerId];
   const myChips        = gs.chipCounts?.[myPlayerId] ?? 0;
   const canAct         = isMyTurn && canActThisTurn(gs, myPlayerId);
 
-  // 버튼 그룹 표시/숨김
   const normalActions = document.getElementById('normal-actions');
   const nextBtn       = document.getElementById('btn-next-round');
   const infoEl        = document.getElementById('action-info');
 
-  // 일반 액션 버튼은 흔들림 방지를 위해 항시 노출 상태로 유지
   if (normalActions) {
     normalActions.style.display = 'flex';
 
+    // 스냅콜 버튼은 숨김 처리
     const snapCallBtn = document.getElementById('btn-snap-call');
+    if (snapCallBtn) snapCallBtn.style.display = 'none';
+
     const stayBtn = document.getElementById('btn-stay');
     const snapBtn = document.getElementById('btn-snap');
     const foldBtn = document.getElementById('btn-fold');
 
-    const mySnapped = gs.playerSnapped?.[myPlayerId];
-    const isSnapDisabled = !canAct || mySnapped || !canSnap;
-
-    if (snapCallBtn) {
-      const snapOwed = showSnapCall ? owed : 0;
-      const canAffordSnap = snapOwed > 0 && myChips >= snapOwed;
-      const maxCall = getMaxSnapCallsLimit(gs);
-      const callLeft = maxCall - getSnapCallsUsed(gs, myPlayerId);
-      snapCallBtn.style.display = showSnapCall ? 'flex' : 'none';
-      snapCallBtn.disabled = !canAct || !canAffordSnap;
-      const snapLabel = document.getElementById('btn-snap-call-label');
-      const snapSub = document.getElementById('btn-snap-call-sub');
-      if (snapLabel) {
-        snapLabel.textContent = canAffordSnap
-          ? `스냅콜 ${snapOwed}칩`
-          : `칩 부족 (${snapOwed}칩)`;
-      }
-      if (snapSub) snapSub.textContent = callLeft > 0 ? '인상 수락 (이번 판 1회)' : '사용함';
-    }
-
     if (stayBtn) {
-      const callOwed = showCall ? owed : 0;
-      const canAffordCall = callOwed > 0 && myChips >= callOwed;
-      stayBtn.disabled = !canAct || !showCall || !canAffordCall;
+      stayBtn.disabled = !canAct;
       stayBtn.style.display = 'flex';
       const stayLabel = document.getElementById('btn-stay-label');
       const staySub = document.getElementById('btn-stay-sub');
+      
       if (stayLabel) {
-        stayLabel.textContent = !showCall
-          ? '콜 —'
-          : (canAffordCall ? `콜 ${callOwed}칩` : `칩 부족 (${callOwed}칩)`);
+        if (owed === 0) {
+          stayLabel.textContent = '체크';
+        } else {
+          stayLabel.textContent = myChips >= owed ? `콜 ${owed}칩` : `올인 콜 (${myChips}칩)`;
+        }
       }
-      if (staySub) staySub.textContent = '클릭 시 칩 차감';
+      if (staySub) staySub.textContent = owed === 0 ? '차례 넘기기' : '금액 맞추기';
     }
 
     if (foldBtn) {
       foldBtn.disabled = !canAct;
       const foldLabel = foldBtn.querySelector('.btn-label');
       const foldSub = foldBtn.querySelector('.btn-sub');
-      if (foldLabel) foldLabel.textContent = showSnapCall ? '런' : '죽기';
-      if (foldSub) foldSub.textContent = showSnapCall ? '기권 탈출' : '포기';
+      if (foldLabel) foldLabel.textContent = '죽기';
+      if (foldSub) foldSub.textContent = '기권';
     }
 
     if (snapBtn) {
-      const nextMult = (gs.snapMultiplier ?? 1) * 2;
-      const snapPay = Math.max(0, calcPhaseBet(gs.phase, nextMult) - (gs.phasePaid?.[myPlayerId] ?? 0));
-      snapBtn.disabled = isSnapDisabled || snapPay <= 0 || myChips < snapPay;
+      const betUnit = getBetUnit(gs.phase);
+      const newBet = (gs.currentBet ?? 0) + betUnit;
+      const raiseCost = newBet - (gs.currentBets?.[myPlayerId] ?? 0);
+      const raiseCount = gs.raiseCount ?? 0;
+      const canRaise = raiseCount < 3 && myChips >= raiseCost;
+
+      snapBtn.disabled = !canAct || !canRaise;
       snapBtn.style.opacity = snapBtn.disabled ? '0.35' : '1';
+      snapBtn.style.display = 'flex';
       snapBtn.innerHTML = `
         <span class="btn-icon">⚡</span>
         <div class="btn-text-wrap">
-          <span class="btn-label">스냅</span>
-          <span class="btn-sub">판돈 2배 · ${snapPay}칩</span>
+          <span class="btn-label">레이즈</span>
+          <span class="btn-sub">+${betUnit}칩 (필요: ${raiseCost}칩)</span>
         </div>
       `;
     }
@@ -1170,7 +1087,6 @@ function renderActionButtons() {
 
   if (nextBtn) nextBtn.style.display = (isHost && isFinished) ? 'inline-flex' : 'none';
 
-  // 정보 메시지
   if (infoEl) {
     if (isFinished) {
       infoEl.textContent = '';
@@ -1181,19 +1097,15 @@ function renderActionButtons() {
       const name = cur ? (roomPlayersCache[cur]?.name || '상대') : '';
       infoEl.textContent = cur ? `${name} 선택 중...` : '';
     } else {
-      const mult = gs.snapMultiplier ?? 1;
-      const ante = gs.phaseAnte ?? calcPhaseBet(gs.phase, mult);
-      if (showSnapCall) {
-        infoEl.textContent = `스냅 인상분 ${owed}칩 — 스냅콜(1회) 또는 런`;
-      } else if (showCall) {
-        infoEl.textContent = `콜 ${owed}칩 · 스냅 / 죽기`;
+      const paid = gs.currentBets?.[myPlayerId] ?? 0;
+      if (owed === 0) {
+        infoEl.textContent = `내 차례입니다. 체크하거나 레이즈할 수 있습니다. (이번 페이즈 낸 칩: ${paid}칩)`;
       } else {
-        infoEl.textContent = `이번 단계 ${ante}칩 · 스냅 / 죽기`;
+        infoEl.textContent = `내 차례입니다. 콜(${owed}칩)하거나 레이즈, 혹은 폴드할 수 있습니다. (이번 페이즈 낸 칩: ${paid}칩)`;
       }
     }
   }
 
-  // 내 칩 표시
   const myChipsEl = document.getElementById('my-chips');
   if (myChipsEl) myChipsEl.textContent = `💰 ${myChips}칩`;
 }
@@ -1210,10 +1122,11 @@ function renderChipList() {
     const act    = gs.currentActor === pid;
     const folded = gs.folded?.[pid];
     const chips  = gs.chipCounts?.[pid] ?? 0;
+    const paid   = gs.currentBets?.[pid] ?? 0;
     return `<div class="chip-row ${isMe ? 'is-me' : ''} ${act ? 'active' : ''} ${folded ? 'folded-row' : ''}">
       <span class="chip-avatar">${p.avatar || '🤖'}</span>
       <span class="chip-name">${escapeHtml(p.name || pid)}${isMe ? ' (나)' : ''}</span>
-      <span class="chip-amount">💰 ${chips}</span>
+      <span class="chip-amount">💰 ${chips} (낸 액수: ${paid})</span>
     </div>`;
   }).join('');
 }
@@ -1275,18 +1188,16 @@ function appendLogIfNew(action) {
   const log = document.getElementById('action-log');
   if (!log) return;
 
-  const icons = { stay:'💰', fold:'✕', snap:'⚡', snapCall:'💰', win:'🏆', deal:'🃏' };
-  const labels = { stay:'콜', fold:'기권', snap:'스냅', snapCall:'스냅콜', win:'승리!', deal:'딜' };
-  const cls = { stay:'action-check', fold:'action-fold', snap:'action-raise', snapCall:'action-call', win:'action-win', deal:'action-deal' };
+  const icons = { stay:'💰', fold:'✕', snap:'⚡', win:'🏆', deal:'🃏' };
+  const cls = { stay:'action-check', fold:'action-fold', snap:'action-raise', win:'action-win', deal:'action-deal' };
 
   const icon  = icons[action.type]  || '•';
-  const label = labels[action.type] || action.type;
   const amt   = action.amount > 0 ? ` ${action.amount}칩` : '';
   const extra = action.detail ? ` — ${action.detail}` : '';
 
   const entry = document.createElement('div');
   entry.className = `log-entry ${cls[action.type] || ''}`;
-  entry.textContent = `${icon} ${escapeHtml(action.playerName || '')} ${label}${amt}${extra}`;
+  entry.textContent = `${icon} ${escapeHtml(action.playerName || '')}${amt}${extra}`;
   log.appendChild(entry);
   while (log.children.length > 35) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;

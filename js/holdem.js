@@ -380,8 +380,6 @@ async function playerAction(action) {
   updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
 
   await update(ref(database), updates);
-
-  if (!next && isHost) setTimeout(() => triggerPhaseComplete(), 400);
 }
 
 function advanceActorAfterAction(state, currentPid, extraFolded = {}) {
@@ -596,7 +594,6 @@ async function executeBotAction(curGs, botId) {
   updates[`rooms/${myRoomCode}/gameState/lastAction`] = logAction;
 
   await update(ref(database), updates);
-  if (!next) setTimeout(() => triggerPhaseComplete(), 400);
 }
 
 // ─── 페이즈 완료 처리 ────────────────────────────────
@@ -609,6 +606,9 @@ async function triggerPhaseComplete(curGs) {
   const gs2 = curGs || snap.val();
 
   if (gs2.finished) return;
+
+  // 이미 다음 페이즈 딜링이 진행되었거나 베팅이 완료 상태가 아니라면 중복 처리 방지
+  if (!isBettingRoundComplete(gs2)) return;
 
   const playerOrder = getPlayerOrder(gs2);
   const folded      = gs2.folded || {};

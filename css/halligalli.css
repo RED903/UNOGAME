@@ -763,3 +763,11 @@ body {
     font-size: 1.05rem;
   }
 }
+
+/* 상대방 카드 슬롯 내부 과일 이모지 깨짐 및 어긋남 수정 */
+.opponent-open-card-slot .hg-card-pattern[data-count="1"] { font-size: 1.6rem; }
+.opponent-open-card-slot .hg-card-pattern[data-count="2"] { font-size: 1.1rem; }
+.opponent-open-card-slot .hg-card-pattern[data-count="3"] { font-size: 0.9rem; }
+.opponent-open-card-slot .hg-card-pattern[data-count="4"] { font-size: 0.9rem; }
+.opponent-open-card-slot .hg-card-pattern[data-count="5"] { font-size: 0.8rem; }
+

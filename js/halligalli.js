@@ -269,6 +269,16 @@ function updateUI() {
 // ─── 카드 렌더러 ───
 function renderCard(card, targetEl) {
   if (!targetEl) return;
+
+  const currentCardId = targetEl.dataset.cardId || '';
+  const newCardId = card ? card.id : '';
+
+  // 이전 카드와 동일한 카드이면 렌더링 건너뜀 (깜빡임 원천 방지)
+  if (currentCardId === newCardId) {
+    return;
+  }
+
+  targetEl.dataset.cardId = newCardId;
   targetEl.innerHTML = '';
 
   if (!card) {

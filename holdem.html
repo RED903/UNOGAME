@@ -134,21 +134,17 @@
   <!-- ── 쇼다운 오버레이 ── -->
   <div class="showdown-overlay" id="showdown-overlay">
     <div class="showdown-box">
-      <div class="showdown-title">🏆 게임 종료!</div>
+      <!-- 승자 이름 및 족보 -->
       <div class="showdown-winner-name" id="showdown-winner"></div>
-      <div class="showdown-players" id="showdown-players"></div>
-      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
-        <button class="btn-next-round" id="btn-next-round-sd"
-          onclick="document.getElementById('btn-next-round').click()" style="display:none;">
-          🔄 다음 라운드
-        </button>
-        <button class="btn-next-round" id="btn-back-lobby-sd" style="display:none; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-          🏠 대기실로 복귀
-        </button>
-        <button class="btn-leave-game" onclick="document.getElementById('btn-leave').click()">
-          🚪 나가기
-        </button>
+      <!-- 커뮤니티 카드 (보드 카드) -->
+      <div class="sd-community-area" id="sd-community-area">
+        <div class="sd-community-label">🃏 보드 카드</div>
+        <div class="sd-community-cards" id="sd-community-cards"></div>
       </div>
+      <!-- 플레이어 패 목록 -->
+      <div class="showdown-players" id="showdown-players"></div>
+      <!-- 3초 카운트다운 -->
+      <div class="sd-countdown" id="sd-countdown">3</div>
     </div>
   </div>
 

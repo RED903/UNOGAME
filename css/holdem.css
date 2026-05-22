@@ -774,13 +774,43 @@ body {
   text-shadow: 0 0 20px rgba(212,175,55,0.5);
 }
 .showdown-winner-name {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: var(--uno-text);
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+  font-weight: 700;
 }
 .showdown-winner-name span { color: var(--poker-gold2); font-weight: 900; }
 
-/* 쇼다운 카드 목록 */
+/* 커뮤니티 카드 (보드 카드) 영역 */
+.sd-community-area {
+  margin-bottom: 16px;
+}
+.sd-community-label {
+  font-size: 0.78rem;
+  color: rgba(240,240,255,0.5);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.sd-community-cards {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 3초 카운트다운 표시 */
+.sd-countdown {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: rgba(240,240,255,0.25);
+  line-height: 1;
+  margin-top: 12px;
+  letter-spacing: 2px;
+  transition: color 0.3s ease;
+}
+
 .showdown-players {
   display: flex;
   flex-wrap: wrap;

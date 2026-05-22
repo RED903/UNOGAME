@@ -1131,7 +1131,9 @@ function renderChipList() {
   }).join('');
 }
 
-// ─── 쇼다운 오버레이 ─────────────────────────────────
+// \u2500\u2500\u2500 \uc1fc\ub2e4\uc6b4 \uc624\ubc84\ub808\uc774 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+let sdCountdownTimer = null; // \uce74\uc6b4\ud2b8\ub2e4\uc6b4 \ud0c0\uc774\uba38 \ub808\ud37c\ub7f0\uc2a4
 
 function showShowdown() {
   const overlay = document.getElementById('showdown-overlay');
@@ -1141,10 +1143,25 @@ function showShowdown() {
   const winnerNames = winners.map(pid => roomPlayersCache[pid]?.name || pid).join(', ');
   const sdData  = gs.showdownData || {};
 
-  overlay.querySelector('.showdown-title').textContent    = '🏆 게임 종료!';
+  // \uc2b9\uc790 \ud45c\uc2dc (\uac8c\uc784\uc885\ub8cc \ud0c0\uc774\ud2c0 \uc81c\uac70)
   overlay.querySelector('.showdown-winner-name').innerHTML =
-    `<span>${escapeHtml(winnerNames)}</span> 승리 — <span style="color:rgba(240,240,255,0.7)">${escapeHtml(gs.winnerHand || '')}</span>`;
+    `\uD83C\uDFC6 <span>${escapeHtml(winnerNames)}</span> \uc2b9\ub9ac \u2014 <span style="color:rgba(240,240,255,0.7)">${escapeHtml(gs.winnerHand || '')}</span>`;
 
+  // \ucf4c\ub7ec\ucf54\ub4dc: \ucee4\ubba4\ub2c8\ud2f0 \uce74\ub4dc (\ubcf4\ub4dc \uce74\ub4dc) \ud45c\uc2dc
+  const communityArea = document.getElementById('sd-community-cards');
+  if (communityArea) {
+    const comm = gs.communityCards || [];
+    if (comm.length > 0) {
+      communityArea.innerHTML = comm.map(c =>
+        `<div style="border-radius:6px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.6);">${renderPokerCardSVG(c, { width: 52, height: 75, highlight: false })}</div>`
+      ).join('');
+      document.getElementById('sd-community-area').style.display = 'block';
+    } else {
+      document.getElementById('sd-community-area').style.display = 'none';
+    }
+  }
+
+  // \ud50c\ub808\uc774\uc5b4 \ud328 \ubaa9\ub85d \ub80c\ub354\ub9c1
   const playersEl = overlay.querySelector('.showdown-players');
   if (playersEl) {
     playersEl.innerHTML = getPlayerOrder(gs).map(pid => {
@@ -1159,7 +1176,7 @@ function showShowdown() {
         return `<div class="showdown-player folded-player">
           <span style="font-size:1.3rem">${p.avatar || '🤖'}</span>
           <div class="sd-name">${escapeHtml(p.name || pid)}</div>
-          <div class="sd-rank">기권</div>
+          <div class="sd-rank">\uae30\uad8c</div>
         </div>`;
       }
 
@@ -1177,7 +1194,34 @@ function showShowdown() {
   }
 
   overlay.classList.add('show');
+
+  // 3\ucd08 \uce74\uc6b4\ud2b8\ub2e4\uc6b4 \ud6c4 \uc790\ub3d9 \ub2e4\uc74c \ub77c\uc6b4\ub4dc
+  if (sdCountdownTimer) {
+    clearInterval(sdCountdownTimer);
+    sdCountdownTimer = null;
+  }
+
+  const countdownEl = document.getElementById('sd-countdown');
+  let count = 3;
+  if (countdownEl) countdownEl.textContent = count;
+
+  sdCountdownTimer = setInterval(() => {
+    count--;
+    if (countdownEl) countdownEl.textContent = count;
+
+    if (count <= 0) {
+      clearInterval(sdCountdownTimer);
+      sdCountdownTimer = null;
+      overlay.classList.remove('show');
+
+      // \ubc29\uc7a5\ub9cc \ub2e4\uc74c \ub77c\uc6b4\ub4dc \uc2dc\uc791, \ub098\uba38\uc9c0\ub294 Firebase \ub9ac\uc2a4\ub108\ub97c \ud1b5\ud574 \uc790\ub3d9 \uac31\uc2e0
+      if (isHost) {
+        handleNextRound();
+      }
+    }
+  }, 1000);
 }
+
 
 // ─── 로그 ────────────────────────────────────────────
 

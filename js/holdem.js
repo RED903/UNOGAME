@@ -1202,7 +1202,7 @@ function showShowdown() {
   }
 
   const countdownEl = document.getElementById('sd-countdown');
-  let count = 3;
+  let count = 5;
   if (countdownEl) countdownEl.textContent = count;
 
   sdCountdownTimer = setInterval(() => {

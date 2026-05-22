@@ -370,14 +370,14 @@ btnFlip.addEventListener('click', async () => {
 
     const flippedCard = myDeck.shift(); // 덱 맨위 1장 제거
 
-    // 다음 턴 플레이어 검색 (파산 안 당한 사람)
+    // 다음 턴 플레이어 검색 (파산 안 당했고 덱이 있는 사람)
     const order = gs.playerOrder || [];
     let nextIdx = (order.indexOf(myPlayerId) + 1) % order.length;
     let nextTurnPid = order[nextIdx];
 
-    // 살아있는 사람 찾을 때까지 루프
+    // 살아있고 뒤집을 카드(덱)가 있는 사람 찾을 때까지 루프
     let attempts = 0;
-    while (gs.playersOut?.[nextTurnPid] && attempts < order.length) {
+    while ((gs.playersOut?.[nextTurnPid] || (gs.decks?.[nextTurnPid] || []).length === 0) && attempts < order.length) {
       nextIdx = (nextIdx + 1) % order.length;
       nextTurnPid = order[nextIdx];
       attempts++;
@@ -569,6 +569,30 @@ function handleBellResultMessages() {
 function handleBotAI() {
   if (!gs || gs.status !== 'playing') return;
 
+  // 0. [방장 전용] 현재 턴 플레이어의 덱이 0장이면 자동으로 턴을 건너뜀 (소프트락 방지)
+  if (isHost) {
+    const curTurnPid = gs.turn;
+    const curDeck = gs.decks?.[curTurnPid] || [];
+    if (curDeck.length === 0 && !gs.playersOut?.[curTurnPid]) {
+      const order = gs.playerOrder || [];
+      let nextIdx = (order.indexOf(curTurnPid) + 1) % order.length;
+      let nextTurnPid = order[nextIdx];
+
+      let attempts = 0;
+      while ((gs.playersOut?.[nextTurnPid] || (gs.decks?.[nextTurnPid] || []).length === 0) && attempts < order.length) {
+        nextIdx = (nextIdx + 1) % order.length;
+        nextTurnPid = order[nextIdx];
+        attempts++;
+      }
+
+      if (nextTurnPid !== curTurnPid) {
+        update(ref(database, `rooms/${myRoomCode}/gameState`), { turn: nextTurnPid });
+        addLocalLog(`${playersList[curTurnPid]?.name || '상대'}님이 덱에 카드가 없어 턴을 패스합니다.`);
+        return;
+      }
+    }
+  }
+
   // 기존 실행 대기 중인 모든 타이머 폭파
   botActionTimers.forEach(t => clearTimeout(t));
   botActionTimers = [];
@@ -639,7 +663,7 @@ function handleBotAI() {
           let nextTurnPid = order[nextIdx];
 
           let attempts = 0;
-          while (gs.playersOut?.[nextTurnPid] && attempts < order.length) {
+          while ((gs.playersOut?.[nextTurnPid] || (gs.decks?.[nextTurnPid] || []).length === 0) && attempts < order.length) {
             nextIdx = (nextIdx + 1) % order.length;
             nextTurnPid = order[nextIdx];
             attempts++;
@@ -669,7 +693,7 @@ function handleBotAI() {
         let nextTurnPid = order[nextIdx];
 
         let attempts = 0;
-        while (gs.playersOut?.[nextTurnPid] && attempts < order.length) {
+        while ((gs.playersOut?.[nextTurnPid] || (gs.decks?.[nextTurnPid] || []).length === 0) && attempts < order.length) {
           nextIdx = (nextIdx + 1) % order.length;
           nextTurnPid = order[nextIdx];
           attempts++;

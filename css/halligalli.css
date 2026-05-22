@@ -404,6 +404,10 @@ body {
   justify-content: center;
   align-items: center;
   position: relative;
+  padding: 8px; /* 과일이 경계선으로 나가는 것 방지 */
+}
+
+.hg-card.just-flipped {
   animation: card-flip-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
@@ -429,7 +433,8 @@ body {
 .hg-card-pattern[data-count="3"] {
   grid-template-columns: 1fr;
   grid-template-rows: repeat(3, 1fr);
-  font-size: 1.2rem;
+  font-size: 1.02rem; /* 자두/포도 3개 세로 정렬 시 카드 경계 탈출 방지 */
+  gap: 2px;
 }
 .hg-card-pattern[data-count="4"] {
   grid-template-columns: 1fr 1fr;

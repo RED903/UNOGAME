@@ -120,7 +120,9 @@ async function initHalliGalliGame(room) {
     bellRungPid: '',
     bellRungTime: 0,
     decks,
-    openCards: {},
+    // faceUpPile: 각 플레이어의 앞면 쌓인 더미 (배열). 카드를 뒤집을수록 쌓임.
+    // 종 성공 시 전체 수거, 오발 시 그대로 유지.
+    faceUpPile: {},
     playersOut,
     roundCount: 1,
     bellRungResult: {
@@ -130,9 +132,9 @@ async function initHalliGalliGame(room) {
     }
   };
 
-  // 오픈카드 초기화
+  // faceUpPile 초기화 (빈 배열)
   pids.forEach(pid => {
-    gameState.openCards[pid] = null;
+    gameState.faceUpPile[pid] = [];
   });
 
   await update(ref(database, `rooms/${myRoomCode}/gameState`), gameState);
@@ -182,8 +184,10 @@ function updateUI() {
   const myDeck = gs.decks?.[myPlayerId] || [];
   myDeckCount.textContent = myDeck.length;
   
-  const myOpenCard = gs.openCards?.[myPlayerId];
-  renderCard(myOpenCard, myOpenCardSlot);
+  // faceUpPile의 가장 위 카드(최신 카드)를 표시
+  const myPile = gs.faceUpPile?.[myPlayerId] || [];
+  const myTopCard = myPile.length > 0 ? myPile[myPile.length - 1] : null;
+  renderCard(myTopCard, myOpenCardSlot);
 
   // 2. 카드 뒤집기 버튼 활성 조건
   // 내 턴이고, 내 덱에 카드가 남아있으며, 아직 종이 울린 결과 판정 중이 아닐 때
@@ -220,7 +224,9 @@ function updateUI() {
 
     const pInfo = playersList[pid] || { name: '컴퓨터', avatar: '🤖' };
     const pDeck = gs.decks?.[pid] || [];
-    const pOpenCard = gs.openCards?.[pid];
+    // faceUpPile 최상위 카드를 오픈 카드로 표시
+    const pPile = gs.faceUpPile?.[pid] || [];
+    const pOpenCard = pPile.length > 0 ? pPile[pPile.length - 1] : null;
     const isHisTurn = (gs.turn === pid);
     const isOut = gs.playersOut?.[pid];
 
@@ -363,13 +369,14 @@ btnFlip.addEventListener('click', async () => {
 
     const updates = {
       [`rooms/${myRoomCode}/gameState/decks/${myPlayerId}`]: myDeck,
-      [`rooms/${myRoomCode}/gameState/openCards/${myPlayerId}`]: flippedCard,
+      // faceUpPile 배열에 새 카드를 추가 (기존 카드는 보존 - 증발 버그 수정)
+      [`rooms/${myRoomCode}/gameState/faceUpPile/${myPlayerId}`]: [
+        ...(gs.faceUpPile?.[myPlayerId] || []),
+        flippedCard
+      ],
       [`rooms/${myRoomCode}/gameState/turn`]: nextTurnPid
     };
 
-    // 만약 카드 덱이 0장이 되었는데 바닥 오픈카드도 없는 경우 즉시 아웃 처리 대비
-    // 할리갈리는 뒤집을 카드가 없을 때 자기 턴에 뒤집으려다 덱이 0장이면 강제로 아웃
-    // 또는 바닥 오픈카드까지 다 소진되었을 때 아웃
     await update(ref(database), updates);
 
     // 카드 뒤집음 로그 추가
@@ -415,30 +422,41 @@ async function triggerBellRing(pid) {
 async function judgeBellRing(ringerId) {
   if (!isHost || !gs) return;
 
-  const openCards = gs.openCards || {};
-  const isFive = checkFiveFruits(openCards);
+  // faceUpPile에서 각 플레이어의 최상위 카드만 추출하여 5개 판정
+  const pileSnapshot = gs.faceUpPile || {};
+  const topCards = {};
+  Object.keys(pileSnapshot).forEach(pid => {
+    const pile = pileSnapshot[pid] || [];
+    topCards[pid] = pile.length > 0 ? pile[pile.length - 1] : null;
+  });
+
+  const isFive = checkFiveFruits(topCards);
   const ringerName = playersList[ringerId]?.name || '상대';
 
   const decks = { ...gs.decks };
   const playersOut = { ...gs.playersOut };
-  let openCardsUpdated = { ...gs.openCards };
+  // faceUpPile을 깊은 복사
+  const faceUpPile = {};
+  Object.keys(pileSnapshot).forEach(pid => {
+    faceUpPile[pid] = [...(pileSnapshot[pid] || [])];
+  });
 
   let status = 'none';
 
   if (isFive) {
-    // 1. 성공! 테이블 위 모든 오픈 카드를 종 친 사람 덱의 하단으로 흡수
+    // 1. 성공! 모든 플레이어의 faceUpPile을 전부 수거하여 종 친 사람 덱 하단으로
     status = 'success';
     const collectedCards = [];
 
-    Object.keys(openCards).forEach(pid => {
-      const card = openCards[pid];
-      if (card) {
-        collectedCards.push(card);
-        openCardsUpdated[pid] = null; // 테이블 카드 클리어
+    Object.keys(faceUpPile).forEach(pid => {
+      const pile = faceUpPile[pid];
+      if (pile && pile.length > 0) {
+        collectedCards.push(...pile); // 더미 전체 수거
+        faceUpPile[pid] = [];         // 더미 클리어
       }
     });
 
-    // 수거한 카드를 셔플하거나 역순으로 덱 밑에 붙여넣음
+    // 수거한 카드를 종 친 사람 덱 맨 밑에 추가
     decks[ringerId] = [...(decks[ringerId] || []), ...collectedCards];
 
     // 아웃당해있던 사람이 성공했으면 구활
@@ -450,7 +468,8 @@ async function judgeBellRing(ringerId) {
     gs.turn = ringerId;
 
   } else {
-    // 2. 오발 사고! 종 친 사람이 자신의 덱 카드를 다른 살아있는 사람들에게 1장씩 노출 분배
+    // 2. 오발! 종 친 사람이 자신의 덱 카드를 다른 살아있는 사람들에게 1장씩 분배
+    // (faceUpPile은 그대로 유지 - 오발 시 바닥 카드는 건드리지 않음)
     status = 'penalty';
     const activePlayers = gs.playerOrder.filter(pid => pid !== ringerId && !playersOut[pid]);
     const ringerDeck = [...(decks[ringerId] || [])];
@@ -470,11 +489,11 @@ async function judgeBellRing(ringerId) {
     decks[ringerId] = ringerDeck;
   }
 
-  // 3. 카드 수급 후, 덱도 없고 오픈해둔 카드도 없는 플레이어는 영구 아웃(패배) 판정
+  // 3. 카드 수급 후, 덱도 없고 faceUpPile도 없는 플레이어는 영구 아웃(패배) 판정
   gs.playerOrder.forEach(pid => {
     const dLen = decks[pid]?.length || 0;
-    const oCard = openCardsUpdated[pid];
-    if (dLen === 0 && !oCard) {
+    const pileLen = faceUpPile[pid]?.length || 0;
+    if (dLen === 0 && pileLen === 0) {
       playersOut[pid] = true;
     }
   });
@@ -482,7 +501,7 @@ async function judgeBellRing(ringerId) {
   // 4. Firebase 원자적 업데이트
   const updates = {
     [`rooms/${myRoomCode}/gameState/decks`]: decks,
-    [`rooms/${myRoomCode}/gameState/openCards`]: openCardsUpdated,
+    [`rooms/${myRoomCode}/gameState/faceUpPile`]: faceUpPile,
     [`rooms/${myRoomCode}/gameState/playersOut`]: playersOut,
     [`rooms/${myRoomCode}/gameState/turn`]: gs.turn,
     [`rooms/${myRoomCode}/gameState/bellRungPid`]: '', // 종 초기화
@@ -541,8 +560,14 @@ function handleBotAI() {
   // 종이 이미 눌려있으면 대기
   if (gs.bellRungPid) return;
 
-  const openCards = gs.openCards || {};
-  const isFive = checkFiveFruits(openCards);
+  const faceUpPile = gs.faceUpPile || {};
+  // 각 플레이어의 최상위 카드만 추출하여 5개 판정
+  const topCards = {};
+  Object.keys(faceUpPile).forEach(pid => {
+    const pile = faceUpPile[pid] || [];
+    topCards[pid] = pile.length > 0 ? pile[pile.length - 1] : null;
+  });
+  const isFive = checkFiveFruits(topCards);
 
   // 1. 과일의 합이 정확히 5개일 때 경쟁 타종
   if (isFive) {
@@ -606,7 +631,11 @@ function handleBotAI() {
 
           const updates = {
             [`rooms/${myRoomCode}/gameState/decks/${curTurnPid}`]: freshDeck,
-            [`rooms/${myRoomCode}/gameState/openCards/${curTurnPid}`]: flipped,
+            // faceUpPile 배열에 push (기존 카드 보존)
+            [`rooms/${myRoomCode}/gameState/faceUpPile/${curTurnPid}`]: [
+              ...(gs.faceUpPile?.[curTurnPid] || []),
+              flipped
+            ],
             [`rooms/${myRoomCode}/gameState/turn`]: nextTurnPid
           };
           
@@ -650,21 +679,21 @@ function checkGameOver() {
     gs.status = 'gameover';
     gs.roundWinner = winnerId;
 
-    // 최종 순위표 정렬 (남은 덱 장수 내림차순, 아웃된 플레이어는 뒤로)
+    // 최종 순위표: 남은 덱 + faceUpPile 합산 장수 기준 정렬
     const ranking = order.map(pid => {
       const pDeck = gs.decks?.[pid] || [];
+      const pPile = gs.faceUpPile?.[pid] || [];
       const isOut = gs.playersOut?.[pid];
+      const totalCards = isOut ? 0 : pDeck.length + pPile.length;
       return {
         pid,
         name: playersList[pid]?.name || '상대',
         avatar: playersList[pid]?.avatar || '🤖',
-        deckCount: isOut ? 0 : pDeck.length,
+        deckCount: totalCards,
         isOut
       };
     }).sort((a, b) => {
-      if (a.isOut !== b.isOut) {
-        return a.isOut ? 1 : -1;
-      }
+      if (a.isOut !== b.isOut) return a.isOut ? 1 : -1;
       return b.deckCount - a.deckCount;
     });
 

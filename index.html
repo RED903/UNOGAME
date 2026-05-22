@@ -554,7 +554,33 @@
         </div>
         <div class="room-code-copy">클릭하면 복사됩니다</div>
         <!-- 게임 종류 배지 -->
-        <div id="game-type-badge" style="margin-top:6px; font-size:0.8rem; font-weight:700; color:rgba(240,240,255,0.5);">🃏 UNO 카드 게임</div>
+        <div id="game-type-badge" style="margin-top:6px; font-size:0.8rem; font-weight:700; color:rgba(240,240,255,0.5); display:none;">🃏 UNO 카드 게임</div>
+        
+        <!-- 실시간 방 설정 변경 영역 -->
+        <div class="waiting-room-settings" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(240,240,255,0.08); display:flex; gap:10px; width:100%; justify-content:center;">
+          <div style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; flex:1;">
+            <label style="font-size:0.7rem; color:rgba(240,240,255,0.4); font-weight:700;">게임 종류</label>
+            <select class="select-input" id="waiting-game-type" style="padding:6px 10px; font-size:0.75rem; border-radius:8px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.1); width:100%; cursor:pointer;">
+              <option value="uno">🃏 UNO 카드 게임</option>
+              <option value="holdem">🎰 텍사스 홀덤 포커</option>
+              <option value="halligalli">🔔 할리갈리 (Halli Galli)</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:85px;">
+            <label style="font-size:0.7rem; color:rgba(240,240,255,0.4); font-weight:700;">최대 인원</label>
+            <select class="select-input" id="waiting-max-players" style="padding:6px 10px; font-size:0.75rem; border-radius:8px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.1); width:100%; cursor:pointer;">
+              <option value="2">2명</option>
+              <option value="3">3명</option>
+              <option value="4">4명</option>
+              <option value="5">5명</option>
+              <option value="6">6명</option>
+              <option value="7">7명</option>
+              <option value="8">8명</option>
+              <option value="9">9명</option>
+              <option value="10">10명</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="glass-card player-list-wrapper" style="padding:16px 20px; border-radius:16px; width:100%;">

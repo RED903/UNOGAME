@@ -124,3 +124,12 @@ export function playButtonClick() {
   playTone(520, 0.04, 'sine', 0.18);
   playTone(780, 0.05, 'sine', 0.14, 0.03);
 }
+
+/** 할리갈리 종소리 */
+export function playBell() {
+  playTone(987.77, 0.4, 'sine', 0.35); // B5
+  playTone(1318.51, 0.5, 'sine', 0.25, 0.02); // E6
+  playTone(1975.53, 0.6, 'sine', 0.15, 0.04); // B6
+  playTone(2637.02, 0.7, 'triangle', 0.1, 0.06); // E7
+}
+

@@ -972,3 +972,250 @@ body {
   }
 }
 
+@media (max-width: 600px) {
+  .holdem-root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .poker-table-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+  }
+
+  .opponents-area {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .player-panel {
+    min-width: 70px;
+    padding: 4px 6px;
+    border-radius: 12px;
+  }
+
+  .p-avatar {
+    font-size: 1.1rem !important;
+  }
+
+  .p-name {
+    font-size: 0.65rem !important;
+  }
+
+  .p-chips {
+    font-size: 0.65rem !important;
+  }
+
+  .poker-table {
+    padding: 10px;
+    border-radius: 40px;
+    min-height: 120px !important;
+    margin-bottom: 6px;
+  }
+
+  .pot-display {
+    padding: 4px 10px;
+  }
+
+  .pot-amount {
+    font-size: 0.85rem;
+  }
+
+  .phase-badge {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+  }
+
+  .phase-ante {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+  }
+
+  .community-cards {
+    gap: 4px;
+  }
+
+  .community-cards svg {
+    width: 38px !important;
+    height: 54px !important;
+  }
+
+  .my-area {
+    padding: 8px;
+    margin-bottom: 6px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .my-hand-cards {
+    gap: 6px;
+  }
+
+  .my-hand-cards svg {
+    width: 48px !important;
+    height: 68px !important;
+  }
+
+  .my-hand-rank {
+    font-size: 0.75rem;
+  }
+
+  .my-chips-display {
+    font-size: 0.85rem;
+  }
+
+  .action-zone {
+    padding: 8px;
+    gap: 6px;
+    border-radius: 14px;
+    margin-bottom: 4px;
+  }
+
+  .action-info {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+
+  .snap-multiplier-row {
+    font-size: 0.65rem;
+    padding: 2px 0;
+  }
+
+  .action-group {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    width: 100%;
+  }
+
+  .btn-action {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 60px !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 6px 4px !important;
+    gap: 2px !important;
+    border-radius: 14px !important;
+  }
+
+  .btn-icon {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 0.95rem !important;
+    border-radius: 6px !important;
+  }
+
+  .btn-text-wrap {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .btn-label {
+    font-size: 0.78rem !important;
+  }
+
+  .btn-sub {
+    font-size: 0.52rem !important;
+    margin-top: 0px !important;
+    display: none;
+  }
+
+  .info-panel {
+    height: 90px;
+    padding: 6px;
+    background: rgba(10, 10, 20, 0.95);
+  }
+
+  .info-section {
+    min-width: 110px;
+    padding: 4px;
+  }
+
+  .info-section-title {
+    font-size: 0.65rem;
+    margin-bottom: 2px;
+  }
+
+  .game-stats {
+    gap: 2px;
+  }
+
+  .stat-row {
+    font-size: 0.6rem;
+  }
+
+  .chip-list {
+    max-height: 55px;
+    gap: 2px;
+  }
+
+  .action-log {
+    height: 55px;
+    font-size: 0.6rem;
+  }
+
+  .btn-leave-game {
+    font-size: 0.7rem;
+    padding: 6px 12px;
+  }
+
+  .btn-next-round {
+    font-size: 0.85rem;
+    padding: 10px 20px;
+    width: 100%;
+  }
+
+  .showdown-box {
+    max-width: 320px;
+    padding: 16px;
+  }
+
+  .showdown-title {
+    font-size: 1.2rem;
+  }
+
+  .showdown-winner-name {
+    font-size: 1rem;
+  }
+
+  .showdown-players {
+    max-height: 180px;
+    gap: 6px;
+  }
+
+  .showdown-player {
+    padding: 6px;
+    min-width: 110px;
+  }
+
+  .sd-name {
+    font-size: 0.75rem;
+  }
+
+  .sd-hand svg {
+    width: 26px !important;
+    height: 38px !important;
+  }
+
+  .sd-rank {
+    font-size: 0.65rem;
+  }
+}
+
+

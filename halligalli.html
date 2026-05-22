@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="darkreader-lock" content="true"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔔 할리갈리 (Halli Galli) — 실시간 보드게임</title>
+  <meta name="description" content="과일의 합이 정확히 5개가 되는 순간 종을 치는 실시간 모바일 최적화 할리갈리 게임입니다."/>
+  <link rel="stylesheet" href="css/halligalli.css"/>
+</head>
+<body>
+
+  <div class="hg-root">
+
+    <!-- ── 상단 헤더 정보 ── -->
+    <header class="hg-header">
+      <div class="room-info">
+        <span class="room-code-badge" id="display-room-code">------</span>
+      </div>
+      <div class="turn-status-badge" id="turn-status">대기 중...</div>
+      <button class="btn-leave-game" id="btn-leave">🚪 나가기</button>
+    </header>
+
+    <!-- ── 게임 보드판 ── -->
+    <main class="hg-board">
+
+      <!-- ── 1. 상대 플레이어들 영역 ── -->
+      <section class="opponents-area" id="opponents-area">
+        <!-- 상대방 1, 2, 3이 스크립트에 의해 동적으로 렌더링됨 -->
+      </section>
+
+      <!-- ── 2. 중앙 영역: 거대한 입체 황금종 ── -->
+      <section class="bell-center-zone">
+        <button class="hg-bell-btn" id="btn-bell" aria-label="종 치기">
+          <div class="bell-cap"></div>
+          <div class="bell-body">🔔</div>
+          <div class="bell-base"></div>
+        </button>
+        <!-- 오발 사고 및 벌칙 문구용 플로팅 메시지 -->
+        <div id="penalty-notice" class="penalty-notice"></div>
+      </section>
+
+      <!-- ── 3. 하단 영역: 내 플레이 정보 & 뒤집기 버튼 ── -->
+      <section class="my-area">
+        <div class="my-status-card glass-card">
+          <div class="my-profile">
+            <span class="my-avatar" id="my-avatar">🦊</span>
+            <div class="my-info-text">
+              <span class="my-name" id="my-name">나</span>
+              <span class="my-badge">나</span>
+            </div>
+          </div>
+          <div class="my-deck-info">
+            <div class="my-deck-card-back" id="my-deck-back">
+              <span class="card-count" id="my-deck-count">0</span>
+            </div>
+            <div class="my-open-card-slot" id="my-open-card-slot">
+              <!-- 내가 뒤집은 카드가 표시됨 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 뒤집기 거대 액션 버튼 -->
+        <button class="btn-action-flip" id="btn-flip" disabled>
+          <span class="flip-icon">🔄</span>
+          <span class="flip-text">카드 뒤집기</span>
+        </button>
+      </section>
+
+    </main>
+
+    <!-- ── 게임 안내 로그 및 상태 ── -->
+    <footer class="hg-footer">
+      <div class="action-log" id="action-log">
+        <div class="log-entry">🔔 다른 플레이어들을 기다리는 중...</div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ── 게임 최종 결과 / 라운드 종료 오버레이 ── -->
+  <div class="game-over-overlay" id="game-over-overlay">
+    <div class="result-box glass-card">
+      <h2 class="result-title">🏆 게임 종료!</h2>
+      <div class="winner-name" id="winner-name">---</div>
+      <div class="players-ranking" id="players-ranking">
+        <!-- 순위 목록이 렌더링됨 -->
+      </div>
+      <div class="result-buttons">
+        <button class="btn-control btn-lobby" id="btn-back-lobby" style="display:none;">
+          🏠 대기실로 복귀
+        </button>
+        <button class="btn-control btn-restart" id="btn-restart" style="display:none;">
+          🔄 다음 라운드 시작
+        </button>
+        <button class="btn-control btn-leave" id="btn-overlay-leave">
+          🚪 방 나가기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 및 플로팅 메세지 -->
+  <div id="float-msg"></div>
+  <div id="toast"></div>
+
+  <!-- Firebase 및 클라이언트 구동 스크립트 연결 -->
+  <script type="module" src="js/halligalli.js"></script>
+</body>
+</html>

@@ -84,6 +84,36 @@ function bindEvents() {
 
   // 방 나가기
   document.getElementById('btn-leave').addEventListener('click', handleLeaveRoom);
+
+  // 대기실 실시간 설정 변경 연동 (방장용)
+  document.getElementById('waiting-game-type')?.addEventListener('change', handleWaitingRoomSettingChange);
+  document.getElementById('waiting-max-players')?.addEventListener('change', handleWaitingRoomSettingChange);
+}
+
+// ─── 대기실 설정 실시간 변경 (방장만) ───────────────────
+async function handleWaitingRoomSettingChange() {
+  if (!myRoomCode) return;
+  const gameTypeSelect = document.getElementById('waiting-game-type');
+  const maxPlayersSelect = document.getElementById('waiting-max-players');
+  if (!gameTypeSelect || !maxPlayersSelect) return;
+
+  try {
+    const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
+    if (!roomSnap.exists()) return;
+    const room = roomSnap.val();
+    if (room.host !== myPlayerId) return; // 방장만 변경 가능
+
+    const newGameType = gameTypeSelect.value;
+    const newMaxPlayers = parseInt(maxPlayersSelect.value);
+
+    const updates = {
+      [`rooms/${myRoomCode}/gameType`]: newGameType,
+      [`rooms/${myRoomCode}/maxPlayers`]: newMaxPlayers
+    };
+    await update(ref(database), updates);
+  } catch (err) {
+    console.error("방 설정 업데이트 실패:", err);
+  }
 }
 
 // ─── 방 생성 ─────────────────────────────────────────
@@ -338,6 +368,8 @@ function listenToRoom(roomCode) {
       const gameType = room.gameType || 'uno';
       if (gameType === 'holdem') {
         window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
+      } else if (gameType === 'halligalli') {
+        window.location.href = `halligalli.html?room=${roomCode}&player=${myPlayerId}`;
       } else {
         window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
       }
@@ -358,8 +390,27 @@ function updateWaitingRoom(room, roomCode) {
   const badgeEl = document.getElementById('game-type-badge');
   if (badgeEl) {
     const gameType = room.gameType || 'uno';
-    badgeEl.textContent = gameType === 'holdem' ? '🎰 텍사스 홀덤 포커' : '🃏 UNO 카드 게임';
+    const gameTypeNames = {
+      uno: '🃏 UNO 카드 게임',
+      holdem: '🎰 텍사스 홀덤 포커',
+      halligalli: '🔔 할리갈리 (Halli Galli)'
+    };
+    badgeEl.textContent = gameTypeNames[gameType] || '🃏 UNO 카드 게임';
     badgeEl.style.color = gameType === 'holdem' ? '#d4af37' : 'rgba(240,240,255,0.5)';
+  }
+
+  // 실시간 대기실 설정 박스 업데이트
+  const isHost = room.host === myPlayerId;
+  const waitingGameTypeSelect = document.getElementById('waiting-game-type');
+  const waitingMaxPlayersSelect = document.getElementById('waiting-max-players');
+
+  if (waitingGameTypeSelect) {
+    waitingGameTypeSelect.value = room.gameType || 'uno';
+    waitingGameTypeSelect.disabled = !isHost; // 방장만 조작 가능
+  }
+  if (waitingMaxPlayersSelect) {
+    waitingMaxPlayersSelect.value = String(room.maxPlayers || 4);
+    waitingMaxPlayersSelect.disabled = !isHost; // 방장만 조작 가능
   }
 
   // 플레이어 목록 업데이트
@@ -426,6 +477,8 @@ async function rejoinRoom(roomCode) {
         const gameType = room.gameType || 'uno';
         if (gameType === 'holdem') {
           window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
+        } else if (gameType === 'halligalli') {
+          window.location.href = `halligalli.html?room=${roomCode}&player=${myPlayerId}`;
         } else {
           window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
         }

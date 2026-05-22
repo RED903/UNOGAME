@@ -49,6 +49,11 @@
               <span class="my-name" id="my-name">나</span>
               <span class="my-badge">나</span>
             </div>
+            <!-- 할리갈리 감정표현 패널 -->
+            <div class="emote-panel" style="margin-left: 10px;">
+              <button class="emote-toggle-btn" id="btn-emote-toggle" title="감정표현">💬</button>
+              <div class="emote-list" id="emote-list"></div>
+            </div>
           </div>
           <div class="my-deck-info">
             <div class="my-deck-card-back" id="my-deck-back">
@@ -103,6 +108,7 @@
   <!-- 토스트 및 플로팅 메세지 -->
   <div id="float-msg"></div>
   <div id="toast"></div>
+  <div id="emote-popup-container"></div>
 
   <!-- Firebase 및 클라이언트 구동 스크립트 연결 -->
   <script type="module" src="js/halligalli.js"></script>

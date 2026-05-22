@@ -59,6 +59,7 @@ const btnOverlayLeave = document.getElementById('btn-overlay-leave');
 // ─── 초기화 ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   displayRoomCode.textContent = myRoomCode;
+  initEmotePanel();
 
   try {
     // 1. 방 정보 취득
@@ -80,6 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     myAvatarEl.textContent = myAvatar;
     myNameEl.textContent = myName;
+    document.querySelector('.my-status-card')?.setAttribute('data-pid', myPlayerId);
 
     // 2. 방장 주도의 카드 게임 상태 초기화
     if (isHost && !room.gameState) {
@@ -171,6 +173,19 @@ function subscribeToRoom() {
     }
   });
   unsubList.push(unsubRoom);
+
+  // 실시간 감정표현 리스너
+  const emoteRef = ref(database, `rooms/${myRoomCode}/emotes`);
+  const unsubEmote = onValue(emoteRef, (snapshot) => {
+    if (!snapshot.exists()) return;
+    const emotes = snapshot.val();
+    Object.entries(emotes).forEach(([pid, data]) => {
+      if (pid !== myPlayerId && data && data.emote) {
+        showEmotePopup(pid, data.emote, data.timestamp);
+      }
+    });
+  });
+  unsubList.push(unsubEmote);
 }
 
 // ─── UI 실시간 갱신 ──────────────────────────────────────
@@ -235,6 +250,7 @@ function updateUI() {
     if (!cardDiv) {
       cardDiv = document.createElement('div');
       cardDiv.dataset.opponentPid = pid;
+      cardDiv.dataset.pid = pid;
       cardDiv.innerHTML = `
         <div class="opponent-profile">
           <span class="opponent-avatar">${pInfo.avatar || '🤖'}</span>
@@ -749,6 +765,7 @@ btnBackLobby.addEventListener('click', async () => {
     });
     // 내 게임정보 삭제
     await remove(ref(database, `rooms/${myRoomCode}/gameState`));
+    await remove(ref(database, `rooms/${myRoomCode}/emotes`));
   } catch (err) {
     console.error('대기실 복귀 에러:', err);
   }
@@ -770,6 +787,7 @@ async function handleLeave() {
         });
         // 게임 상태 초기화 (봇 플레이어 포함)
         await remove(ref(database, `rooms/${myRoomCode}/gameState`));
+        await remove(ref(database, `rooms/${myRoomCode}/emotes`));
         // 봇 플레이어는 대기실에서 제거
         const pids = Object.keys(playersList);
         for (const pid of pids) {
@@ -820,3 +838,108 @@ function cleanup() {
   botActionTimers.forEach(t => clearTimeout(t));
   unsubList.forEach(unsub => unsub());
 }
+
+// ─── 감정표현 ────────────────────────────────────
+const EMOTES = ['😂', '👍', '😤', '🔥', '😭', '🤯', '😮', '😜', '🤔', '🤮', '😡', '🤦‍♂️', '👎'];
+let isEmoteCooldown = false;
+const shownEmoteTimestamps = new Set();
+
+function initEmotePanel() {
+  const listEl = document.getElementById('emote-list');
+  const toggleBtn = document.getElementById('btn-emote-toggle');
+
+  if (!listEl || !toggleBtn) return;
+
+  // 이모지 버튼 생성
+  listEl.innerHTML = EMOTES.map(e =>
+    `<button class="emote-btn" data-emote="${e}" title="${e}">${e}</button>`
+  ).join('');
+
+  // 개별 이모지 클릭
+  listEl.querySelectorAll('.emote-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emote = btn.dataset.emote;
+      sendEmote(emote);
+    });
+  });
+
+  // 토글 버튼
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    listEl.classList.toggle('open');
+  });
+
+  // 문서 클릭 시 이모지 패널 닫기
+  document.addEventListener('click', () => {
+    listEl.classList.remove('open');
+  });
+  listEl.addEventListener('click', (e) => e.stopPropagation());
+  toggleBtn.addEventListener('click', (e) => e.stopPropagation());
+}
+
+async function sendEmote(emote) {
+  if (isEmoteCooldown) return;
+  isEmoteCooldown = true;
+
+  const toggleBtn = document.getElementById('btn-emote-toggle');
+  const listEl = document.getElementById('emote-list');
+
+  if (toggleBtn) toggleBtn.classList.add('cooldown');
+  if (listEl) {
+    listEl.querySelectorAll('.emote-btn').forEach(btn => {
+      btn.classList.add('cooldown');
+      btn.disabled = true;
+    });
+  }
+
+  try {
+    await update(ref(database, `rooms/${myRoomCode}/emotes/${myPlayerId}`), {
+      emote,
+      senderName: myName,
+      timestamp: Date.now()
+    });
+  } catch (e) {
+    console.error('감정표현 전송 실패:', e);
+  }
+
+  showEmotePopup(myPlayerId, emote, Date.now());
+
+  setTimeout(() => {
+    isEmoteCooldown = false;
+    if (toggleBtn) toggleBtn.classList.remove('cooldown');
+    if (listEl) {
+      listEl.querySelectorAll('.emote-btn').forEach(btn => {
+        btn.classList.remove('cooldown');
+        btn.disabled = false;
+      });
+    }
+  }, 1000);
+}
+
+function showEmotePopup(playerId, emote, timestamp) {
+  const key = `${playerId}_${timestamp}`;
+  if (shownEmoteTimestamps.has(key)) return;
+  shownEmoteTimestamps.add(key);
+
+  if (shownEmoteTimestamps.size > 50) {
+    const first = shownEmoteTimestamps.values().next().value;
+    shownEmoteTimestamps.delete(first);
+  }
+
+  const playerEl = document.querySelector(`[data-pid="${playerId}"]`);
+  if (!playerEl) return;
+
+  const rect = playerEl.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = 'emote-popup';
+  popup.textContent = emote;
+  
+  // 플레이어 패널 하단 중앙에서 아래로 떨어지게 세팅
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${rect.bottom + 10}px`;
+  popup.style.transform = 'translateX(-50%)';
+
+  document.getElementById('emote-popup-container')?.appendChild(popup);
+  setTimeout(() => popup.remove(), 2900);
+}
+

@@ -156,6 +156,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   setupListeners();
   setupButtons();
+  initEmotePanel();
   window.addEventListener('beforeunload', handleBeforeUnload);
 
   if (isHost) {
@@ -236,6 +237,19 @@ function setupListeners() {
     if (myHoleCards.length === 2) SFX.deal();
   });
   unsubList.push(u2);
+
+  // 감정표현 리스닝
+  const emoteRef = ref(database, `rooms/${myRoomCode}/emotes`);
+  const uEmote = onValue(emoteRef, snap => {
+    if (!snap.exists()) return;
+    const emotes = snap.val();
+    Object.entries(emotes).forEach(([pid, data]) => {
+      if (pid !== myPlayerId && data && data.emote) {
+        showEmotePopup(pid, data.emote, data.timestamp);
+      }
+    });
+  });
+  unsubList.push(uEmote);
 }
 
 // ─── 버튼 이벤트 ────────────────────────────────────
@@ -291,7 +305,7 @@ async function playerAction(action) {
   const owed = getBetOwed(gs, myPlayerId);
 
   const updates = {};
-  const logAction = { type: action, playerName: myName, amount: 0, detail: '', timestamp: Date.now() };
+  const logAction = { type: action, playerName: myName, playerId: myPlayerId, amount: 0, detail: '', timestamp: Date.now() };
 
   if (action === 'fold') {
     SFX.fold();
@@ -534,7 +548,7 @@ async function executeBotAction(curGs, botId) {
   }
 
   const updates = {};
-  const logAction = { type: action, playerName: botName, amount: 0, detail: '', timestamp: Date.now() };
+  const logAction = { type: action, playerName: botName, playerId: botId, amount: 0, detail: '', timestamp: Date.now() };
 
   const chips = { ...(gs2.chipCounts || {}) };
   const currentBets = { ...(gs2.currentBets || {}) };
@@ -837,8 +851,12 @@ async function handleLeave() {
     const snap = await get(ref(database, `rooms/${myRoomCode}`));
     if (snap.exists()) {
       const room = snap.val();
-      if (room.host === myPlayerId) await remove(ref(database, `rooms/${myRoomCode}`));
-      else await remove(ref(database, `rooms/${myRoomCode}/players/${myPlayerId}`));
+      if (room.host === myPlayerId) {
+        await remove(ref(database, `rooms/${myRoomCode}`));
+      } else {
+        await remove(ref(database, `rooms/${myRoomCode}/players/${myPlayerId}`));
+        await remove(ref(database, `rooms/${myRoomCode}/emotes/${myPlayerId}`));
+      }
     }
   } catch (e) {}
   sessionStorage.removeItem('uno_room_code');
@@ -851,6 +869,10 @@ async function handleLeave() {
 
 function renderAll(newCardStartIdx = -1) {
   if (!gs) return;
+  const myArea = document.querySelector('.my-area');
+  if (myArea && !myArea.hasAttribute('data-pid')) {
+    myArea.setAttribute('data-pid', myPlayerId);
+  }
   renderOpponents();
   renderCommunityCards(newCardStartIdx);
   renderMyHand();
@@ -897,7 +919,7 @@ function renderOpponents() {
       ).join('')}</div>`;
     }
 
-    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''}">
+    return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''}" data-pid="${pid}">
       ${isDealer ? '<div class="dealer-chip">D</div>' : ''}
       <div class="p-avatar">${avatar}</div>
       ${cardHtml}
@@ -1245,6 +1267,32 @@ function appendLogIfNew(action) {
   log.appendChild(entry);
   while (log.children.length > 35) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
+
+  // 텍사스 홀덤 베팅 액션 로고 플로팅 팝업 (하단으로 흘러내리는 연출)
+  if (action.playerId && action.playerId !== 'dealer') {
+    let actionType = '';
+    let detail = '';
+    
+    if (action.type === 'fold') {
+      actionType = 'fold';
+      detail = 'Fold';
+    } else if (action.type === 'stay') {
+      if (action.detail === '체크') {
+        actionType = 'check';
+        detail = 'Check';
+      } else {
+        actionType = 'call';
+        detail = action.detail === '올인 콜' ? 'All-in Call' : 'Call';
+      }
+    } else if (action.type === 'snap') {
+      actionType = 'raise';
+      detail = 'Raise';
+    }
+    
+    if (actionType) {
+      showPokerActionPopup(action.playerId, actionType, detail);
+    }
+  }
 }
 
 // ─── 유틸 ────────────────────────────────────────────
@@ -1261,4 +1309,127 @@ function showFloatMsg(text, duration = 2000) {
   el.classList.add('show');
   clearTimeout(floatTimer);
   floatTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ─── 감정표현 및 베팅 액션 팝업 공통 로직 ───────────────────
+const EMOTES = ['😂', '👍', '😤', '🔥', '😭', '🤯', '😮', '😜', '🤔', '🤮', '😡', '🤦‍♂️', '👎'];
+let isEmoteCooldown = false;
+const shownEmoteTimestamps = new Set();
+
+function initEmotePanel() {
+  const listEl = document.getElementById('emote-list');
+  const toggleBtn = document.getElementById('btn-emote-toggle');
+
+  if (!listEl || !toggleBtn) return;
+
+  // 이모지 버튼 생성
+  listEl.innerHTML = EMOTES.map(e =>
+    `<button class="emote-btn" data-emote="${e}" title="${e}">${e}</button>`
+  ).join('');
+
+  // 개별 이모지 클릭
+  listEl.querySelectorAll('.emote-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emote = btn.dataset.emote;
+      sendEmote(emote);
+    });
+  });
+
+  // 토글 버튼
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    listEl.classList.toggle('open');
+  });
+
+  // 문서 클릭 시 이모지 패널 닫기
+  document.addEventListener('click', () => {
+    listEl.classList.remove('open');
+  });
+  listEl.addEventListener('click', (e) => e.stopPropagation());
+  toggleBtn.addEventListener('click', (e) => e.stopPropagation());
+}
+
+async function sendEmote(emote) {
+  if (isEmoteCooldown) return;
+  isEmoteCooldown = true;
+
+  const toggleBtn = document.getElementById('btn-emote-toggle');
+  const listEl = document.getElementById('emote-list');
+
+  if (toggleBtn) toggleBtn.classList.add('cooldown');
+  if (listEl) {
+    listEl.querySelectorAll('.emote-btn').forEach(btn => {
+      btn.classList.add('cooldown');
+      btn.disabled = true;
+    });
+  }
+
+  try {
+    const myName = roomPlayersCache[myPlayerId]?.name || '나';
+    await update(ref(database, `rooms/${myRoomCode}/emotes/${myPlayerId}`), {
+      emote,
+      senderName: myName,
+      timestamp: Date.now()
+    });
+  } catch (e) {
+    console.error('감정표현 전송 실패:', e);
+  }
+
+  showEmotePopup(myPlayerId, emote, Date.now());
+
+  setTimeout(() => {
+    isEmoteCooldown = false;
+    if (toggleBtn) toggleBtn.classList.remove('cooldown');
+    if (listEl) {
+      listEl.querySelectorAll('.emote-btn').forEach(btn => {
+        btn.classList.remove('cooldown');
+        btn.disabled = false;
+      });
+    }
+  }, 1000);
+}
+
+function showEmotePopup(playerId, emote, timestamp) {
+  const key = `${playerId}_${timestamp}`;
+  if (shownEmoteTimestamps.has(key)) return;
+  shownEmoteTimestamps.add(key);
+
+  if (shownEmoteTimestamps.size > 50) {
+    const first = shownEmoteTimestamps.values().next().value;
+    shownEmoteTimestamps.delete(first);
+  }
+
+  const playerEl = document.querySelector(`[data-pid="${playerId}"]`);
+  if (!playerEl) return;
+
+  const rect = playerEl.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = 'emote-popup';
+  popup.textContent = emote;
+  
+  // 플레이어 패널 하단 중앙에서 아래로 떨어지게 세팅 (방해 안 되게 화면 하단으로 흘러내림)
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${rect.bottom + 10}px`;
+  popup.style.transform = 'translateX(-50%)';
+
+  document.getElementById('emote-popup-container')?.appendChild(popup);
+  setTimeout(() => popup.remove(), 2900);
+}
+
+function showPokerActionPopup(playerId, actionType, detail) {
+  const playerEl = document.querySelector(`[data-pid="${playerId}"]`);
+  if (!playerEl) return;
+
+  const rect = playerEl.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = `emote-popup poker-action-popup ${actionType}`;
+  popup.textContent = detail;
+  
+  // 플레이어 패널 하단 중앙에서 아래로 떨어지게 세팅 (UNO 감정표현 스타일과 완전 동일)
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${rect.bottom + 10}px`;
+  popup.style.transform = 'translateX(-50%)';
+
+  document.getElementById('emote-popup-container')?.appendChild(popup);
+  setTimeout(() => popup.remove(), 2900);
 }

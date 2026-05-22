@@ -35,7 +35,14 @@
       <div class="my-area">
         <div class="my-hand-cards" id="my-hand-cards"></div>
         <div class="my-hand-rank" id="my-hand-rank">핸드 대기 중...</div>
-        <div class="my-chips-display" id="my-chips">💰 0칩</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top: 4px;">
+          <div class="my-chips-display" id="my-chips">💰 0칩</div>
+          <!-- 텍사스 홀덤 감정표현 패널 -->
+          <div class="emote-panel">
+            <button class="emote-toggle-btn" id="btn-emote-toggle" title="감정표현">💬</button>
+            <div class="emote-list" id="emote-list"></div>
+          </div>
+        </div>
       </div>
 
       <!-- ── 액션 버튼 영역 ── -->
@@ -150,6 +157,7 @@
 
   <div id="float-msg"></div>
   <div id="toast"></div>
+  <div id="emote-popup-container"></div>
 
   <!-- 다음라운드 버튼 오버레이 동기화 -->
   <script>

@@ -404,20 +404,23 @@ body {
   justify-content: center;
   align-items: center;
   position: relative;
-  padding: 8px; /* 과일이 경계선으로 나가는 것 방지 */
+  overflow: hidden;
+  /* 애니메이션은 hg-card--flip-in 클래스로 분리: 일반 상태에서는 존재하지 않음 */
 }
 
-.hg-card.just-flipped {
-  animation: card-flip-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+/* 실제로 카드가 교체될 때만 적용되는 flip-in 애니메이션 */
+.hg-card.hg-card--flip-in {
+  animation: card-flip-in 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .hg-card-pattern {
   display: grid;
   width: 80%;
   height: 80%;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   justify-items: center;
+  overflow: hidden;
 }
 
 /* 과일 수량별 그리드 템플릿 */
@@ -430,21 +433,23 @@ body {
   grid-template-rows: 1fr 1fr;
   font-size: 1.5rem;
 }
+/* 3개: 세로 3칸이 좌폭 안에 다 들어오도록 폰트 조정 */
 .hg-card-pattern[data-count="3"] {
   grid-template-columns: 1fr;
   grid-template-rows: repeat(3, 1fr);
-  font-size: 1.02rem; /* 자두/포도 3개 세로 정렬 시 카드 경계 탈출 방지 */
-  gap: 2px;
+  font-size: 1.1rem;
+  gap: 1px;
 }
 .hg-card-pattern[data-count="4"] {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 .hg-card-pattern[data-count="5"] {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
+  gap: 1px;
 }
 
 /* 5개일 때 중앙 과일 배치용 */
@@ -769,10 +774,11 @@ body {
   }
 }
 
-/* 상대방 카드 슬롯 내부 과일 이모지 깨짐 및 어긋남 수정 */
-.opponent-open-card-slot .hg-card-pattern[data-count="1"] { font-size: 1.6rem; }
-.opponent-open-card-slot .hg-card-pattern[data-count="2"] { font-size: 1.1rem; }
-.opponent-open-card-slot .hg-card-pattern[data-count="3"] { font-size: 0.9rem; }
-.opponent-open-card-slot .hg-card-pattern[data-count="4"] { font-size: 0.9rem; }
-.opponent-open-card-slot .hg-card-pattern[data-count="5"] { font-size: 0.8rem; }
+/* 상대방 카드 슬롯 내부 과일 이모지 깨짐 및 어긋남 수정 (52x74 슬롯 기준) */
+.opponent-open-card-slot .hg-card-pattern[data-count="1"] { font-size: 1.6rem; gap: 0; }
+.opponent-open-card-slot .hg-card-pattern[data-count="2"] { font-size: 1.1rem; gap: 1px; }
+/* 3개: 세로로 세 줄이 슬롯 내에 다 들어오도록 폰트 줄임 */
+.opponent-open-card-slot .hg-card-pattern[data-count="3"] { font-size: 0.78rem; gap: 0; }
+.opponent-open-card-slot .hg-card-pattern[data-count="4"] { font-size: 0.78rem; gap: 1px; }
+.opponent-open-card-slot .hg-card-pattern[data-count="5"] { font-size: 0.68rem; gap: 0; }
 

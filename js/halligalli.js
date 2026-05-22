@@ -210,38 +210,26 @@ function updateUI() {
     turnStatus.style.color = 'rgba(240,240,255,0.6)';
   }
 
-  // 4. 상대방 영역 동적 렌더링 (DOM 캐싱 보존 및 정밀 선택적 업데이트)
+  // 4. 상대방 영역 DOM 캐싱 방식으로 업데이트 (매번 초기화하면 깜빡임 발생)
   const order = gs.playerOrder || [];
-  const activePids = new Set(order.filter(pid => pid !== myPlayerId));
+  const renderedPids = new Set();
 
-  // DOM 내의 탈퇴한 상대 플레이어 엘리먼트 제거
-  const existingCards = opponentsArea.querySelectorAll('.opponent-card');
-  existingCards.forEach(cardEl => {
-    const pid = cardEl.dataset.pid;
-    if (!activePids.has(pid)) {
-      cardEl.remove();
-    }
-  });
-
-  // 각 상대 플레이어 엘리먼트 동적 갱신
   order.forEach(pid => {
-    if (pid === myPlayerId) return; // 본인은 제외
-    
+    if (pid === myPlayerId) return; // 나는 제외
+    renderedPids.add(pid);
+
     const pInfo = playersList[pid] || { name: '컴퓨터', avatar: '🤖' };
     const pDeck = gs.decks?.[pid] || [];
     const pOpenCard = gs.openCards?.[pid];
     const isHisTurn = (gs.turn === pid);
     const isOut = gs.playersOut?.[pid];
 
-    let cardEl = opponentsArea.querySelector(`.opponent-card[data-pid="${pid}"]`);
-    
-    if (!cardEl) {
-      // 최초 1회 엘리먼트 생성
-      cardEl = document.createElement('div');
-      cardEl.className = `opponent-card ${isHisTurn ? 'active-turn' : ''} ${isOut ? 'out' : ''}`;
-      cardEl.dataset.pid = pid;
-      
-      cardEl.innerHTML = `
+    // 이미 DOM에 있는 노드는 재사용, 없으면 새로 생성
+    let cardDiv = opponentsArea.querySelector(`[data-opponent-pid="${pid}"]`);
+    if (!cardDiv) {
+      cardDiv = document.createElement('div');
+      cardDiv.dataset.opponentPid = pid;
+      cardDiv.innerHTML = `
         <div class="opponent-profile">
           <span class="opponent-avatar">${pInfo.avatar || '🤖'}</span>
           <span class="opponent-name">${pInfo.name}</span>
@@ -250,31 +238,28 @@ function updateUI() {
           <div class="mini-card-back"></div>
           <span class="mini-deck-count">${pDeck.length}</span>
         </div>
-        <div class="opponent-open-card-slot" id="open-slot-${pid}" data-pid="${pid}"></div>
+        <div class="opponent-open-card-slot" id="open-slot-${pid}"></div>
       `;
-      opponentsArea.appendChild(cardEl);
+      opponentsArea.appendChild(cardDiv);
     } else {
-      // 기존 엘리먼트 갱신 (불필요한 렌더링 스킵)
-      cardEl.className = `opponent-card ${isHisTurn ? 'active-turn' : ''} ${isOut ? 'out' : ''}`;
-      
-      const deckCountEl = cardEl.querySelector('.mini-deck-count');
-      if (deckCountEl) {
-        deckCountEl.textContent = pDeck.length;
-      }
-      
-      const nameEl = cardEl.querySelector('.opponent-name');
-      if (nameEl && nameEl.textContent !== pInfo.name) {
-        nameEl.textContent = pInfo.name;
-      }
-
-      const avatarEl = cardEl.querySelector('.opponent-avatar');
-      if (avatarEl && avatarEl.textContent !== pInfo.avatar) {
-        avatarEl.textContent = pInfo.avatar || '🤖';
-      }
+      // 덱 카운트만 갱신 (DOM 재생성 없이)
+      const countEl = cardDiv.querySelector('.mini-deck-count');
+      if (countEl) countEl.textContent = pDeck.length;
     }
 
+    // 액티브 턴 클래스 갱신
+    cardDiv.className = `opponent-card ${isHisTurn ? 'active-turn' : ''} ${isOut ? 'out' : ''}`;
+
+    // 오픈 카드 슬롯 렌더링 (변경 시에만 flip 애니메이션 발동)
     const slot = document.getElementById(`open-slot-${pid}`);
     renderCard(pOpenCard, slot);
+  });
+
+  // 게임에서 떠난 플레이어 노드 제거
+  opponentsArea.querySelectorAll('[data-opponent-pid]').forEach(el => {
+    if (!renderedPids.has(el.dataset.opponentPid)) {
+      opponentsArea.removeChild(el);
+    }
   });
 
   // 5. 종 울림 사운드 및 모션
@@ -301,13 +286,14 @@ function updateUI() {
 }
 
 // ─── 카드 렌더러 ───
+// 카드 ID가 변경되었을 때만 DOM을 갱신하고, 새 카드일 때만 flip 애니메이션 적용
 function renderCard(card, targetEl) {
   if (!targetEl) return;
 
   const currentCardId = targetEl.dataset.cardId || '';
   const newCardId = card ? card.id : '';
 
-  // 이전 카드와 동일한 카드이면 렌더링 건너뜀 (깜빡임 원천 방지)
+  // 동일한 카드 → 렌더링 완전 스킵 (깜빡임 방지)
   if (currentCardId === newCardId) {
     return;
   }
@@ -325,7 +311,14 @@ function renderCard(card, targetEl) {
   targetEl.style.background = 'transparent';
 
   const cardContainer = document.createElement('div');
-  cardContainer.className = 'hg-card just-flipped';
+  // 카드가 실제로 바뀐 경우에만 flip-in 애니메이션 클래스 적용
+  cardContainer.className = 'hg-card hg-card--flip-in';
+  // 애니메이션 재사용을 위해 강제 reflow 후 클래스 제거
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      cardContainer.classList.remove('hg-card--flip-in');
+    });
+  });
 
   const pattern = document.createElement('div');
   pattern.className = 'hg-card-pattern';
@@ -732,115 +725,44 @@ btnBackLobby.addEventListener('click', async () => {
   }
 });
 
-// ─── 게임 나가기 (우노식 세련된 대기실 복귀 및 세션 보존 이탈 시스템) ───
-let isLeaving = false;
-
+// ─── 게임 나가기 (다른 게임들과 동일: 방장은 대기실로, 참가자는 퇴장) ───
 btnLeave.addEventListener('click', handleLeave);
 btnOverlayLeave.addEventListener('click', handleLeave);
 
 async function handleLeave() {
-  if (isLeaving) return;
-  if (!confirm('정말로 게임에서 나가시겠습니까?')) return;
-
-  isLeaving = true;
-  cleanup();
-
-  try {
-    const roomRef = ref(database, `rooms/${myRoomCode}`);
-    const snap = await get(roomRef);
-    if (!snap.exists()) {
-      redirectToLobby(false);
-      return;
-    }
-
-    const room = snap.val();
-    const players = room.players || {};
-    const playerIds = Object.keys(players);
-
-    // 나를 제외한 남은 플레이어 목록
-    const remainingIds = playerIds.filter(id => id !== myPlayerId);
-    // 나를 제외한 남은 실제 유저 목록 (봇 제외)
-    const remainingHumanIds = remainingIds.filter(id => !id.startsWith('bot_'));
-
-    // 1) 실제 유저가 나 혼자였던 방(봇전 또는 1인 잔류)이면 방 삭제 후 메인으로
-    if (remainingHumanIds.length === 0) {
-      await remove(roomRef);
-      redirectToLobby(false);
-      return;
-    }
-
-    const updates = {};
-
-    // 2) 플레이어가 2명인데 한 명이 나가는 경우:
-    // 세션을 유지한 채 대기방으로 두 유저 동시 귀환! (방을 waiting 상태로 되돌림)
-    if (playerIds.length === 2) {
-      updates[`rooms/${myRoomCode}/status`] = 'waiting';
-      updates[`rooms/${myRoomCode}/gameState`] = null;
-
-      // 리스너 전부 해제 후 업데이트
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      await update(ref(database), updates);
-
-      redirectToLobby(true);
-      return;
-    }
-
-    // 3) 플레이어가 3명 이상인데 한 명이 나가는 경우:
-    // 나간 플레이어만 방에서 지우고 남은 이들끼리 게임 정상 지속!
-    if (room.host === myPlayerId) {
-      updates[`rooms/${myRoomCode}/host`] = remainingIds[0];
-    }
-
-    updates[`rooms/${myRoomCode}/players/${myPlayerId}`] = null;
-
-    if (gs) {
-      updates[`rooms/${myRoomCode}/gameState/decks/${myPlayerId}`] = null;
-      updates[`rooms/${myRoomCode}/gameState/openCards/${myPlayerId}`] = null;
-      updates[`rooms/${myRoomCode}/gameState/playersOut/${myPlayerId}`] = null;
-
-      // playerOrder 재구성
-      const currentOrder = gs.playerOrder || [];
-      const newOrderList = currentOrder.filter(id => id !== myPlayerId);
-      updates[`rooms/${myRoomCode}/gameState/playerOrder`] = newOrderList;
-
-      // 턴 안전 인계 (내가 현재 턴이었다면 다음 살아있는 유저에게 넘김)
-      if (gs.turn === myPlayerId) {
-        let nextIdx = (currentOrder.indexOf(myPlayerId) + 1) % currentOrder.length;
-        let nextTurnPid = currentOrder[nextIdx];
-        
-        let attempts = 0;
-        while ((gs.playersOut?.[nextTurnPid] || nextTurnPid === myPlayerId) && attempts < currentOrder.length) {
-          nextIdx = (nextIdx + 1) % currentOrder.length;
-          nextTurnPid = currentOrder[nextIdx];
-          attempts++;
+  if (confirm('정말로 게임에서 나가시겠습니까?')) {
+    cleanup();
+    
+    try {
+      if (isHost) {
+        // 방장이 나가면 방 상태를 'waiting'으로 되돌려 모든 플레이어를 대기실로 복귀시킴
+        await update(ref(database, `rooms/${myRoomCode}`), {
+          status: 'waiting'
+        });
+        // 게임 상태 초기화 (봇 플레이어 포함)
+        await remove(ref(database, `rooms/${myRoomCode}/gameState`));
+        // 봇 플레이어는 대기실에서 제거
+        const pids = Object.keys(playersList);
+        for (const pid of pids) {
+          if (playersList[pid]?.isBot) {
+            await remove(ref(database, `rooms/${myRoomCode}/players/${pid}`));
+          }
         }
-        updates[`rooms/${myRoomCode}/gameState/turn`] = nextTurnPid;
+      } else {
+        // 일반 유저는 자신만 플레이어 목록에서 삭제
+        await remove(ref(database, `rooms/${myRoomCode}/players/${myPlayerId}`));
+        if (gs) {
+          await remove(ref(database, `rooms/${myRoomCode}/gameState/decks/${myPlayerId}`));
+          await remove(ref(database, `rooms/${myRoomCode}/gameState/openCards/${myPlayerId}`));
+        }
       }
+    } catch (err) {
+      console.error('방 퇴장 처리 에러:', err);
     }
 
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-    await update(ref(database), updates);
-    redirectToLobby(false);
-
-  } catch (err) {
-    console.error('퇴장 처리 중 오류 발생:', err);
-    redirectToLobby(false);
+    window.location.href = 'index.html';
   }
 }
-
-function redirectToLobby(keepSession = false) {
-  if (!keepSession) {
-    sessionStorage.removeItem('uno_room_code');
-  }
-  window.location.href = 'index.html';
-}
-
-// 브라우저 닫기/새로고침 시 이탈 처리
-const handleBeforeUnload = () => {
-  if (isLeaving) return;
-  handleLeave();
-};
-window.addEventListener('beforeunload', handleBeforeUnload);
 
 // ─── 로그 및 텍스트 ───
 function addLocalLog(msg) {

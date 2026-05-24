@@ -62,15 +62,18 @@ export async function startHoldemRound(roomCode, room) {
     // 이미 탈락한 플레이어는 건너뜀
     if (eliminated[pid]) continue;
 
+    // prevChips[pid]가 undefined이면 한 번도 칩을 받은 적 없는 신규(첫 라운드)
+    // prevChips[pid]가 명시적으로 0이면 이번 라운드에서 칩을 다 잃은 것
+    const isFirstGame = prevChips[pid] === undefined;
     const curChips = prevChips[pid] ?? 0;
     const curLives = prevLives[pid] ?? INITIAL_LIVES;
 
-    if (curChips > 0) {
-      // 칩이 남아있으면 그대로 유지
-      chipCounts[pid] = curChips;
+    if (isFirstGame || curChips > 0) {
+      // 첫 게임이거나 칩이 남아있으면 그대로 유지 (신규는 초기 칩 지급)
+      chipCounts[pid] = curChips > 0 ? curChips : startChips;
       lives[pid] = curLives;
     } else {
-      // 칩이 0이 됨 → 목숨 1개 소모
+      // 이전 라운드에서 칩이 있었는데 0이 됨 → 목숨 1개 소모
       const newLives = curLives - 1;
       if (newLives <= 0) {
         // 목숨 0 → 완전 탈락

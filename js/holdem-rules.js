@@ -102,9 +102,13 @@ function evaluateHand(cards) {
   const isStraight = checkStraight(rankValsSorted);
   const groups = Object.values(rankCounts).sort((a, b) => b - a); // 내림차순 그룹
 
+  // 오름차순 정렬 (타이브레이킹 및 로열플러시 판별용)
+  const rankValsSortedAsc = [...rankValsSorted].reverse();
+
   let handType;
 
-  if (isFlush && isStraight && rankValsSorted[0] === 14 && rankValsSorted[1] === 13) {
+  if (isFlush && isStraight && rankValsSorted[0] === 14 && rankValsSortedAsc[0] === 10) {
+    // 로열플러시: 플러시 + 스트레이트 + 최솟값이 10 (= 10-J-Q-K-A)
     handType = 'ROYAL_FLUSH';
   } else if (isFlush && isStraight) {
     handType = 'STRAIGHT_FLUSH';

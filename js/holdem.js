@@ -694,15 +694,23 @@ async function advancePhase(curGs, active, nextPhase) {
     actorOrder,
     currentActor: actorOrder[0] || null,
     phaseActed: {},
-    phaseComplete: false,
+    // actorOrder가 비었으면 즉시 페이즈 완료(전원 올인) 표시
+    phaseComplete: actorOrder.length === 0,
     lastAction: {
       type: 'deal',
       playerName: '딜러',
       amount: 0,
-      detail: `${PHASE_NAMES[nextPhase]} 오픈 · 베팅 단위: ${getBetUnit(nextPhase)}칩`,
+      detail: actorOrder.length === 0
+        ? `${PHASE_NAMES[nextPhase]} 오픈 (전원 올인 - 자동 진행)`
+        : `${PHASE_NAMES[nextPhase]} 오픈 · 베팅 단위: ${getBetUnit(nextPhase)}칩`,
       timestamp: Date.now()
     }
   });
+
+  // 전원 올인으로 베팅할 사람이 없으면, 방장이 연속으로 다음 페이즈/쇼다운 진행
+  if (isHost && actorOrder.length === 0) {
+    setTimeout(() => scheduleHostActions(), 800);
+  }
 }
 
 // ─── 조기 종료 (1명 남음) ───────────────────────────
@@ -919,11 +927,18 @@ function renderOpponents() {
       ).join('')}</div>`;
     }
 
+    // 목숨 하트 표시 (lives가 있을 경우)
+    const livesCount = gs.lives?.[pid] ?? null;
+    const livesHtml = livesCount !== null
+      ? `<div class="p-lives">${'❤️'.repeat(livesCount)}${livesCount === 0 ? '💀' : ''}</div>`
+      : '';
+
     return `<div class="player-panel ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''} ${isWinner ? 'winner' : ''}" data-pid="${pid}">
       ${isDealer ? '<div class="dealer-chip">D</div>' : ''}
       <div class="p-avatar">${avatar}</div>
       ${cardHtml}
       <div class="p-name">${escapeHtml(name)}</div>
+      ${livesHtml}
       <div class="p-chips">💰 ${chips}칩 (낸 액수: ${gs.currentBets?.[pid] ?? 0})</div>
       ${isActive ? '<div class="p-thinking">⏳ 선택 중...</div>' : ''}
       ${isWinner ? '<div class="p-winner">🏆 승자!</div>' : ''}
@@ -1129,7 +1144,9 @@ function renderActionButtons() {
   }
 
   const myChipsEl = document.getElementById('my-chips');
-  if (myChipsEl) myChipsEl.textContent = `💰 ${myChips}칩`;
+  const myLives = gs?.lives?.[myPlayerId] ?? null;
+  const livesText = myLives !== null ? ` | ❤️×${myLives}` : '';
+  if (myChipsEl) myChipsEl.textContent = `💰 ${myChips}칩${livesText}`;
 }
 
 // ─── 칩 목록 ─────────────────────────────────────────
@@ -1145,9 +1162,11 @@ function renderChipList() {
     const folded = gs.folded?.[pid];
     const chips  = gs.chipCounts?.[pid] ?? 0;
     const paid   = gs.currentBets?.[pid] ?? 0;
+    const lives  = gs.lives?.[pid] ?? null;
+    const livesStr = lives !== null ? ` ❤️×${lives}` : '';
     return `<div class="chip-row ${isMe ? 'is-me' : ''} ${act ? 'active' : ''} ${folded ? 'folded-row' : ''}">
       <span class="chip-avatar">${p.avatar || '🤖'}</span>
-      <span class="chip-name">${escapeHtml(p.name || pid)}${isMe ? ' (나)' : ''}</span>
+      <span class="chip-name">${escapeHtml(p.name || pid)}${isMe ? ' (나)' : ''}${livesStr}</span>
       <span class="chip-amount">💰 ${chips} (낸 액수: ${paid})</span>
     </div>`;
   }).join('');

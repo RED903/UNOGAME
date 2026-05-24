@@ -135,6 +135,14 @@ body {
   min-height: 12px;
 }
 
+/* 목숨 하트 표시 */
+.player-panel .p-lives {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  letter-spacing: 1px;
+  margin-top: 1px;
+}
+
 /* 상대방 홀 카드 영역 */
 .opponent-cards {
   display: flex;

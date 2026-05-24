@@ -3,6 +3,8 @@
 import { database, ref, update } from './firebase-config.js';
 import { createDeck, shuffleDeck } from './holdem-rules.js';
 
+export const INITIAL_LIVES = 3; // 목숨 초기 개수
+
 export function getStartingChips(n) {
   if (n <= 4) return 250;
   if (n <= 7) return 500;
@@ -40,18 +42,54 @@ export function shouldStartHoldemRound(gs) {
  */
 export async function startHoldemRound(roomCode, room) {
   const players = room.players || {};
-  const playerIds = Object.keys(players);
-  if (playerIds.length < 2) return false;
+  const allPlayerIds = Object.keys(players);
+  if (allPlayerIds.length < 2) return false;
 
   const prevGs = room.gameState || {};
-  const n = playerIds.length;
+  const n = allPlayerIds.length;
   const startChips = getStartingChips(n);
 
   const prevChips = prevGs.chipCounts || {};
+  const prevLives = prevGs.lives || {};
+  const prevEliminated = prevGs.eliminated || {};
+
+  // ─── 목숨 및 칩 처리 ───────────────────────────
+  const lives = {};
   const chipCounts = {};
-  for (const pid of playerIds) {
-    chipCounts[pid] = (prevChips[pid] > 0) ? prevChips[pid] : startChips;
+  const eliminated = { ...prevEliminated };
+
+  for (const pid of allPlayerIds) {
+    // 이미 탈락한 플레이어는 건너뜀
+    if (eliminated[pid]) continue;
+
+    const curChips = prevChips[pid] ?? 0;
+    const curLives = prevLives[pid] ?? INITIAL_LIVES;
+
+    if (curChips > 0) {
+      // 칩이 남아있으면 그대로 유지
+      chipCounts[pid] = curChips;
+      lives[pid] = curLives;
+    } else {
+      // 칩이 0이 됨 → 목숨 1개 소모
+      const newLives = curLives - 1;
+      if (newLives <= 0) {
+        // 목숨 0 → 완전 탈락
+        eliminated[pid] = true;
+        lives[pid] = 0;
+        chipCounts[pid] = 0;
+      } else {
+        // 목숨 차감 후 칩 재지급
+        lives[pid] = newLives;
+        chipCounts[pid] = startChips;
+      }
+    }
   }
+
+  // 탈락자를 제외한 실제 게임 참가자 목록
+  const playerIds = allPlayerIds.filter(pid => !eliminated[pid]);
+
+  // 생존자가 1명 이하면 게임 종료 조건 (더 이상 라운드 불가)
+  if (playerIds.length < 2) return false;
 
   const prevDealer = prevGs.dealerIndex ?? -1;
   const dealerIndex = (prevDealer + 1) % playerIds.length;
@@ -108,6 +146,14 @@ export async function startHoldemRound(roomCode, room) {
     actorOrder.push(playerIds[(firstActorIdx + i) % playerIds.length]);
   }
 
+  // 목숨이 차감된 플레이어 목록 생성 (표시용)
+  const lifeChangedPids = allPlayerIds.filter(pid =>
+    (prevLives[pid] ?? INITIAL_LIVES) !== (lives[pid] ?? INITIAL_LIVES)
+  );
+  const lifeDetail = lifeChangedPids.length > 0
+    ? ` | 목숨 차감: ${lifeChangedPids.map(pid => `${players[pid]?.name || pid} (남은 목숨: ❤️×${lives[pid]})`).join(', ')}`
+    : '';
+
   const newGs = {
     phase: 'preflop',
     playerOrder: playerIds,
@@ -115,11 +161,13 @@ export async function startHoldemRound(roomCode, room) {
     currentActor: actorOrder[0],
     phaseActed: {},
     chipCounts,
+    lives,
+    eliminated,
     folded: {},
     pot,
     communityCards: [],
     dealerIndex,
-    currentBet: bbAmount, // 프리플랍 최고 배팅액은 BB 금액인 5
+    currentBet: bbAmount,
     currentBets,
     raiseCount: 0,
     usedCardIds,
@@ -132,7 +180,7 @@ export async function startHoldemRound(roomCode, room) {
       type: 'deal',
       playerName: '딜러',
       amount: 0,
-      detail: `게임 시작! 블라인드 지불 (SB: ${sbPaid}, BB: ${bbPaid})`,
+      detail: `게임 시작! 블라인드 지불 (SB: ${sbPaid}, BB: ${bbPaid})${lifeDetail}`,
       timestamp: Date.now()
     }
   };

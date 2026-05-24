@@ -718,13 +718,13 @@ async function handleUnoBtn() {
   showFloatMsg('지금은 UNO를 외치거나 잡을 수 없습니다!');
 }
 
-/** UNO 버튼 3초 쿨타임 처리 */
+/** UNO 버튼 2초 쿨타임 처리 */
 function startUnoCooldown() {
   unoCooldown = true;
   const unoBtn = document.getElementById('btn-uno');
   if (!unoBtn) return;
 
-  let secondsLeft = 3;
+  let secondsLeft = 2;
   unoBtn.disabled = true;
   unoBtn.className = 'btn-uno-disabled';
   unoBtn.style.opacity = '0.6';

@@ -1244,11 +1244,11 @@ function showShowdown() {
 
   const countdownEl = document.getElementById('sd-countdown');
   let count = 5;
-  if (countdownEl) countdownEl.textContent = count;
+  if (countdownEl) countdownEl.innerHTML = `⏳ 다음 라운드까지 <span>${count}</span>초...`;
 
   sdCountdownTimer = setInterval(() => {
     count--;
-    if (countdownEl) countdownEl.textContent = count;
+    if (countdownEl) countdownEl.innerHTML = `⏳ 다음 라운드까지 <span>${count}</span>초...`;
 
     if (count <= 0) {
       clearInterval(sdCountdownTimer);

@@ -808,15 +808,33 @@ body {
   flex-wrap: wrap;
 }
 
-/* 3초 카운트다운 표시 */
+/* 5초 카운트다운 표시 */
 .sd-countdown {
-  font-size: 2.4rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--poker-gold2);
+  line-height: 1.4;
+  margin-top: 18px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-shadow: 0 0 10px rgba(212,175,55,0.4);
+}
+
+.sd-countdown span {
+  font-size: 1.6rem;
   font-weight: 900;
-  color: rgba(240,240,255,0.25);
-  line-height: 1;
-  margin-top: 12px;
-  letter-spacing: 2px;
-  transition: color 0.3s ease;
+  color: #ff5252;
+  margin: 0 4px;
+  text-shadow: 0 0 12px rgba(255,82,82,0.6);
+  animation: countdownPulse 1s infinite alternate;
+}
+
+@keyframes countdownPulse {
+  from { transform: scale(0.95); opacity: 0.85; }
+  to { transform: scale(1.05); opacity: 1; }
 }
 
 .showdown-players {
@@ -1084,9 +1102,16 @@ body {
     gap: 4px;
   }
 
-  .community-cards svg {
+  .community-cards svg,
+  .card-slot {
     width: 38px !important;
     height: 54px !important;
+  }
+
+  .card-slot {
+    border-radius: 4px !important;
+    border-width: 1px !important;
+    font-size: 0.8rem !important;
   }
 
   .my-area {
@@ -1220,26 +1245,45 @@ body {
   }
 
   .showdown-box {
-    max-width: 320px;
-    padding: 16px;
+    width: 92%;
+    max-width: 340px;
+    padding: 16px 12px;
+    border-radius: 20px;
   }
 
   .showdown-title {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
   }
 
   .showdown-winner-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-bottom: 12px;
   }
 
   .showdown-players {
-    max-height: 180px;
+    max-height: 170px;
+    overflow-y: auto;
     gap: 6px;
+    padding: 2px 4px;
+    /* 스크롤바 커스텀 */
+    scrollbar-width: thin;
+    scrollbar-color: var(--poker-gold) rgba(255,255,255,0.05);
+  }
+
+  .showdown-players::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .showdown-players::-webkit-scrollbar-thumb {
+    background: var(--poker-gold);
+    border-radius: 10px;
   }
 
   .showdown-player {
-    padding: 6px;
-    min-width: 110px;
+    padding: 6px 8px;
+    min-width: 100px;
+    border-radius: 10px;
   }
 
   .sd-name {
@@ -1253,6 +1297,15 @@ body {
 
   .sd-rank {
     font-size: 0.65rem;
+  }
+
+  .sd-countdown {
+    font-size: 1.05rem;
+    margin-top: 14px;
+  }
+  
+  .sd-countdown span {
+    font-size: 1.35rem;
   }
 }
 

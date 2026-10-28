@@ -4,19 +4,19 @@
   <meta charset="UTF-8"/>
   <meta name="darkreader-lock" content="true"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>UNO 온라인 멀티플레이어</title>
-  <meta name="description" content="친구들과 함께 즐기는 실시간 UNO 카드 게임. 방을 만들거나 코드로 입장하세요!"/>
+  <title>온라인 보드게임 라운지 (UNO, 야추, 라이어, 다빈치, 인디언, 루미큐브, 홀덤, 할리갈리)</title>
+  <meta name="description" content="친구들과 함께 즐기는 실시간 보드게임 & 카드게임! 야추 다이스, 라이어 게임, 다빈치 코드, 인디언 포커, 루미큐브, UNO, 홀덤, 할리갈리를 한곳에서 즐기세요."/>
   <link rel="stylesheet" href="css/main.css"/>
   <style>
     /* ─── 로비 전용 스타일 ─── */
     .lobby-root {
       width: 100vw;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 24px 20px 40px;
     }
 
     /* 화면 전환 */
@@ -26,7 +26,7 @@
       align-items: center;
       gap: 20px;
       width: 100%;
-      max-width: 440px;
+      max-width: 480px;
       animation: screenIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     @keyframes screenIn {
@@ -35,22 +35,53 @@
     }
 
     /* 메인 화면 */
-    #screen-main { gap: 28px; }
+    #screen-main { gap: 24px; }
 
     .main-hero {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       text-align: center;
     }
 
+    .main-title {
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #FF6B6B 0%, #FFD93D 50%, #6BCB77 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 4px 20px rgba(255, 107, 107, 0.25);
+      margin: 0;
+    }
+
     .main-subtitle {
-      font-size: 1rem;
-      color: rgba(240,240,255,0.6);
-      font-weight: 400;
-      max-width: 280px;
-      line-height: 1.6;
+      font-size: 0.95rem;
+      color: rgba(240,240,255,0.7);
+      font-weight: 500;
+      max-width: 340px;
+      line-height: 1.5;
+    }
+
+    .games-carousel-pill {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      max-width: 420px;
+      margin: 4px 0;
+    }
+
+    .game-pill-item {
+      font-size: 0.75rem;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(240,240,255,0.85);
+      font-weight: 600;
     }
 
     .main-buttons {
@@ -103,8 +134,8 @@
       border: 1.5px solid rgba(255,255,255,0.15);
       border-radius: 12px;
       color: #F0F0FF;
-      font-family: 'Outfit', sans-serif;
-      font-size: 1rem;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.95rem;
       font-weight: 600;
       outline: none;
       cursor: pointer;
@@ -292,10 +323,11 @@
     /* 푸터 */
     .lobby-footer {
       position: fixed;
-      bottom: 16px;
+      bottom: 12px;
       font-size: 0.72rem;
-      color: rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.28);
       text-align: center;
+      pointer-events: none;
     }
 
     /* 프로필 아바타 선택기 */
@@ -349,11 +381,11 @@
         max-width: 100%;
       }
 
-      .uno-logo {
-        font-size: clamp(2.2rem, 10vw, 3.5rem) !important;
+      .main-title {
+        font-size: 2.2rem !important;
       }
 
-      .main-subtitle { font-size: 0.9rem; }
+      .main-subtitle { font-size: 0.88rem; }
 
       .main-buttons .btn {
         font-size: 1rem;
@@ -418,8 +450,19 @@
     <!-- ══════════ 메인 화면 ══════════ -->
     <div class="screen" id="screen-main" style="display:flex;">
       <div class="main-hero">
-        <h1 class="uno-logo">UNO</h1>
-        <p class="main-subtitle">친구들과 즐기는 실시간 온라인 카드 게임</p>
+        <h1 class="main-title">BOARD ARENA</h1>
+        <p class="main-subtitle">친구들과 실시간으로 즐기는 8가지 보드게임 & 카드게임 라운지</p>
+        
+        <div class="games-carousel-pill">
+          <span class="game-pill-item">🎲 야추 다이스</span>
+          <span class="game-pill-item">🤫 라이어 게임</span>
+          <span class="game-pill-item">🔢 다빈치 코드</span>
+          <span class="game-pill-item">🤠 인디언 포커</span>
+          <span class="game-pill-item">🧩 루미큐브</span>
+          <span class="game-pill-item">🃏 UNO</span>
+          <span class="game-pill-item">🎰 텍사스 홀덤</span>
+          <span class="game-pill-item">🔔 할리갈리</span>
+        </div>
       </div>
 
       <div class="main-buttons glass-card" style="padding:28px; border-radius:24px;">
@@ -431,10 +474,10 @@
         </button>
       </div>
 
-      <div style="display:flex; gap:24px; font-size:0.8rem; color:rgba(240,240,255,0.35); text-align:center;">
-        <div>🃏 UNO<br/>카드 게임</div>
-        <div>👥 2~10인<br/>멀티플레이</div>
-        <div>⚡ 실시간<br/>동기화</div>
+      <div style="display:flex; gap:24px; font-size:0.8rem; color:rgba(240,240,255,0.45); text-align:center;">
+        <div>🎮 8종 보드게임<br/>통합 지원</div>
+        <div>👥 1~10인<br/>멀티 & 스마트 봇</div>
+        <div>⚡ 실시간 동기화<br/>모바일 완벽 지원</div>
       </div>
     </div>
 
@@ -468,6 +511,11 @@
         <div class="form-group">
           <label class="form-label" for="select-game-type">게임 종류</label>
           <select class="select-input" id="select-game-type">
+            <option value="yacht" selected>🎲 야추 다이스 (Yacht Dice)</option>
+            <option value="liar">🤫 라이어 게임 (Liar Game)</option>
+            <option value="davinci">🔢 다빈치 코드 (Da Vinci Code)</option>
+            <option value="indian">🤠 인디언 포커 (Indian Poker)</option>
+            <option value="rummikub">🧩 루미큐브 (Rummikub)</option>
             <option value="uno">🃏 UNO 카드 게임</option>
             <option value="holdem">🎰 텍사스 홀덤 포커</option>
             <option value="halligalli">🔔 할리갈리 (Halli Galli)</option>
@@ -550,18 +598,23 @@
 
       <div class="glass-card room-code-display" style="border-radius:20px; width:100%;">
         <div class="room-code-label">방 코드 (친구에게 공유하세요)</div>
-        <div class="room-code-value" id="display-room-code" title="클릭하여 복사" onclick="copyRoomCode()">
+        <div class="room-code-value" id="display-room-code" title="클릭하여 복사">
           ------
         </div>
         <div class="room-code-copy">클릭하면 복사됩니다</div>
         <!-- 게임 종류 배지 -->
-        <div id="game-type-badge" style="margin-top:6px; font-size:0.8rem; font-weight:700; color:rgba(240,240,255,0.5); display:none;">🃏 UNO 카드 게임</div>
+        <div id="game-type-badge" style="margin-top:6px; font-size:0.85rem; font-weight:800; color:#FFD900; display:none;">🎲 야추 다이스 (Yacht Dice)</div>
         
         <!-- 실시간 방 설정 변경 영역 -->
         <div class="waiting-room-settings" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(240,240,255,0.08); display:flex; gap:10px; width:100%; justify-content:center;">
           <div style="display:flex; flex-direction:column; align-items:flex-start; gap:4px; flex:1;">
             <label style="font-size:0.7rem; color:rgba(240,240,255,0.4); font-weight:700;">게임 종류</label>
             <select class="select-input" id="waiting-game-type" style="padding:6px 10px; font-size:0.75rem; border-radius:8px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.1); width:100%; cursor:pointer;">
+              <option value="yacht">🎲 야추 다이스 (Yacht Dice)</option>
+              <option value="liar">🤫 라이어 게임 (Liar Game)</option>
+              <option value="davinci">🔢 다빈치 코드 (Da Vinci Code)</option>
+              <option value="indian">🤠 인디언 포커 (Indian Poker)</option>
+              <option value="rummikub">🧩 루미큐브 (Rummikub)</option>
               <option value="uno">🃏 UNO 카드 게임</option>
               <option value="holdem">🎰 텍사스 홀덤 포커</option>
               <option value="halligalli">🔔 할리갈리 (Halli Galli)</option>
@@ -613,70 +666,79 @@
 
   <!-- 푸터 -->
   <div class="lobby-footer">
-    UNO Online • Firebase 실시간 멀티플레이 • GitHub Pages
+    Board Arena • Firebase 실시간 멀티플레이 • GitHub Pages
   </div>
 
   <!-- 토스트 알림 -->
   <div id="toast"></div>
 
   <script>
-    // 방 코드 복사
-    function copyRoomCode() {
-      const code = document.getElementById('display-room-code').textContent.trim();
-      if (code === '------') return;
-      navigator.clipboard.writeText(code).then(() => {
-        showToast('방 코드가 복사되었습니다: ' + code);
-      });
-    }
+    // 즉시실행함수로 전역 네임스페이스 격리
+    (() => {
+      // 방 코드 복사
+      window.copyRoomCode = function() {
+        const codeEl = document.getElementById('display-room-code');
+        if (!codeEl) return;
+        const code = codeEl.textContent.trim();
+        if (code === '------') return;
+        navigator.clipboard.writeText(code).then(() => {
+          window.showToast('방 코드가 복사되었습니다: ' + code);
+        });
+      };
 
-    // 토스트 (lobby.js에도 있지만 인라인으로도)
-    function showToast(message) {
-      let toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2500);
-    }
+      // 토스트 메시지
+      window.showToast = function(message) {
+        let toast = document.getElementById('toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+      };
 
-    // 배경 장식 카드 생성
-    function createDecoCards() {
-      const container = document.getElementById('deco-cards');
-      const symbols = ['0','1','2','3','4','5','6','7','8','9','⊘','⇄','+2','W','+4'];
-      const colors = ['#E8003D','#0065BD','#1B9E3E','#FFD900'];
+      // 배경 장식 카드 생성
+      function createDecoCards() {
+        const container = document.getElementById('deco-cards');
+        if (!container) return;
+        const decoCardSymbols = ['🎲','🤫','🔢','🤠','🧩','🃏','🎰','🔔','⭐','👑','🏆'];
+        const decoCardColors = ['#E8003D','#0065BD','#1B9E3E','#FFD900','#9B51E0','#FF8C00'];
 
-      for (let i = 0; i < 12; i++) {
-        const card = document.createElement('div');
-        card.className = 'deco-card';
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-        const rotStart = (Math.random() - 0.5) * 40;
-        const rotEnd = rotStart + (Math.random() - 0.5) * 60;
-        const duration = 8 + Math.random() * 12;
-        const delay = -Math.random() * 20;
-        const left = Math.random() * 100;
+        for (let i = 0; i < 14; i++) {
+          const card = document.createElement('div');
+          card.className = 'deco-card';
+          const color = decoCardColors[Math.floor(Math.random() * decoCardColors.length)];
+          const symbol = decoCardSymbols[Math.floor(Math.random() * decoCardSymbols.length)];
+          const rotStart = (Math.random() - 0.5) * 40;
+          const rotEnd = rotStart + (Math.random() - 0.5) * 60;
+          const duration = 8 + Math.random() * 12;
+          const delay = -Math.random() * 20;
+          const left = Math.random() * 100;
 
-        card.style.cssText = `
-          left: ${left}%;
-          width: 60px;
-          height: 86px;
-          background: linear-gradient(135deg, ${color}DD, ${color}88);
-          border-radius: 8px;
-          border: 1.5px solid rgba(255,255,255,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.2rem;
-          font-weight: 900;
-          color: white;
-          --rot-start: ${rotStart}deg;
-          --rot-end: ${rotEnd}deg;
-          animation-duration: ${duration}s;
-          animation-delay: ${delay}s;
-        `;
-        card.textContent = symbol;
-        container.appendChild(card);
+          card.style.cssText = `
+            left: ${left}%;
+            width: 58px;
+            height: 80px;
+            background: linear-gradient(135deg, ${color}CC, ${color}66);
+            border-radius: 12px;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            color: white;
+            --rot-start: ${rotStart}deg;
+            --rot-end: ${rotEnd}deg;
+            animation-duration: ${duration}s;
+            animation-delay: ${delay}s;
+            backdrop-filter: blur(4px);
+          `;
+          card.textContent = symbol;
+          container.appendChild(card);
+        }
       }
-    }
-    createDecoCards();
+
+      document.getElementById('display-room-code')?.addEventListener('click', window.copyRoomCode);
+      createDecoCards();
+    })();
   </script>
 
   <!-- Firebase + 로비 로직 (ES Module) -->

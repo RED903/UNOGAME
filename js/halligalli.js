@@ -747,14 +747,9 @@ function checkGameOver() {
       </div>
     `).join('');
 
-    // 호스트면 리스타트 및 대기실 복귀 단추 활성화
-    if (isHost) {
-      btnRestart.style.display = 'block';
-      btnBackLobby.style.display = 'block';
-    } else {
-      btnRestart.style.display = 'none';
-      btnBackLobby.style.display = 'none';
-    }
+    // [★ 수정] 방장이든 참가자든 대기실 복귀 단추를 활성화하여 안전하게 대기실로 복귀 가능
+    btnRestart.style.display = isHost ? 'block' : 'none';
+    btnBackLobby.style.display = 'block';
 
     gameOverOverlay.style.display = 'flex';
 
@@ -778,21 +773,20 @@ btnRestart.addEventListener('click', async () => {
   }
 });
 
-// ─── 대기실 복귀 (방장용) ──────────────────────────────────
+// ─── 대기실 복귀 (방장 및 참가자 공통 안전 복귀) ───────────────
 btnBackLobby.addEventListener('click', async () => {
-  if (!isHost) return;
-
   try {
-    // 방 상태를 waiting으로 돌려놓으면 모든 클라이언트가 index.html로 강제 이동됨
+    // 방 상태를 waiting으로 동기화하면 모든 클라이언트가 index.html 대기실로 안전 이동
     await update(ref(database, `rooms/${myRoomCode}`), {
       status: 'waiting'
     });
-    // 내 게임정보 삭제
     await remove(ref(database, `rooms/${myRoomCode}/gameState`));
     await remove(ref(database, `rooms/${myRoomCode}/emotes`));
   } catch (err) {
     console.error('대기실 복귀 에러:', err);
   }
+  cleanup();
+  window.location.href = 'index.html';
 });
 
 // ─── 게임 나가기 (다른 게임들과 동일: 방장은 대기실로, 참가자는 퇴장) ───

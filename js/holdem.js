@@ -802,9 +802,8 @@ async function handleNextRound() {
   await startNewRound(true);
 }
 
-// ─── 대기실 복귀 ───────────────────────────────────────
+// ─── 대기실 복귀 (방장 및 참가자 공통 안전 복귀) ───────────────
 async function handleBackToLobby() {
-  if (!isHost) return;
   isNavigatingToLobby = true;
 
   unsubList.forEach(u => { try { u(); } catch (e) {} });

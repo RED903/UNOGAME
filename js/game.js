@@ -1290,41 +1290,34 @@ function bindGameEvents() {
     // 리스너 먼저 전부 해제 (이후 Firebase 변경이 루프를 일으키지 않도록)
     cleanupListeners();
     window.removeEventListener('beforeunload', handleBeforeUnload);
-    if (isHost) {
-      try {
-        // [★ 요구사항 3] 대기실로 복귀할 때 방에 있던 봇(bot_)들을 데이터베이스에서 완벽하게 제거
-        const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
-        const updates = {
-          [`rooms/${myRoomCode}/status`]: 'waiting',
-          [`rooms/${myRoomCode}/gameState`]: null,
-          [`rooms/${myRoomCode}/winnerName`]: null,
-          [`rooms/${myRoomCode}/winnerPlayerId`]: null,
-          [`rooms/${myRoomCode}/emotes`]: null
-        };
+    try {
+      // [★ 버그 수정] 방장이든 참가자든 대기실 복귀 시 방 상태를 waiting으로 동기화하여 모두 함께 복귀
+      const roomSnap = await get(ref(database, `rooms/${myRoomCode}`));
+      const updates = {
+        [`rooms/${myRoomCode}/status`]: 'waiting',
+        [`rooms/${myRoomCode}/gameState`]: null,
+        [`rooms/${myRoomCode}/winnerName`]: null,
+        [`rooms/${myRoomCode}/winnerPlayerId`]: null,
+        [`rooms/${myRoomCode}/emotes`]: null
+      };
 
-        if (roomSnap.exists()) {
-          const roomData = roomSnap.val();
-          const players = roomData.players || {};
-          
-          Object.keys(players).forEach(pid => {
-            if (pid.startsWith('bot_')) {
-              // 봇 플레이어 삭제
-              updates[`rooms/${myRoomCode}/players/${pid}`] = null;
-              // 봇 손패 삭제
-              updates[`rooms/${myRoomCode}/hands/${pid}`] = null;
-            }
-          });
-        }
-
-        await update(ref(database), updates);
-        window.location.href = 'index.html';
-      } catch (err) {
-        console.error("대기실 복귀 처리 실패:", err);
-        window.location.href = 'index.html';
+      if (roomSnap.exists()) {
+        const roomData = roomSnap.val();
+        const players = roomData.players || {};
+        
+        Object.keys(players).forEach(pid => {
+          if (pid.startsWith('bot_')) {
+            updates[`rooms/${myRoomCode}/players/${pid}`] = null;
+            updates[`rooms/${myRoomCode}/hands/${pid}`] = null;
+          }
+        });
       }
-    } else {
-      window.location.href = 'index.html';
+
+      await update(ref(database), updates);
+    } catch (err) {
+      console.error("대기실 복귀 처리 실패:", err);
     }
+    window.location.href = 'index.html';
   });
 
   // 게임 나가기

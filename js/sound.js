@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════
 // Web Audio API 기반 효과음 시스템
-// 외부 파일 없이 프로그래밍 방식으로 효과음 생성
+// 외부 파일 없이 프로그래밍 방식으로 고품질 효과음 생성
 // ═══════════════════════════════════════════════════
 
 let audioCtx = null;
@@ -40,11 +40,11 @@ function playTone(frequency, duration, type = 'sine', volume = 0.3, delay = 0) {
     osc.start(ctx.currentTime + delay);
     osc.stop(ctx.currentTime + delay + duration);
   } catch (e) {
-    // 오디오 지원 안 할 경우 무시
+    // 오디오 미지원 브라우저 대비 무시
   }
 }
 
-// ─── 각종 효과음 ───────────────────────────────────
+// ─── 기본 및 공통 효과음 ─────────────────────────────
 
 /** 카드 내려놓기 */
 export function playCardPlay() {
@@ -72,7 +72,7 @@ export function playUnoCall() {
   playTone(880, 0.15, 'square', 0.35, 0.2);
 }
 
-/** 승리 */
+/** 승리 팡파레 */
 export function playWin() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((freq, i) => {
@@ -119,7 +119,7 @@ export function playChat() {
   playTone(880, 0.05, 'sine', 0.15);
 }
 
-/** 버튼 클릭 (로비 등) */
+/** 버튼 클릭 */
 export function playButtonClick() {
   playTone(520, 0.04, 'sine', 0.18);
   playTone(780, 0.05, 'sine', 0.14, 0.03);
@@ -133,3 +133,51 @@ export function playBell() {
   playTone(2637.02, 0.7, 'triangle', 0.1, 0.06); // E7
 }
 
+// ─── 신규 게임 전용 효과음 ──────────────────────────
+
+/** 주사위 굴리는 소리 (야추 다이스) */
+export function playDiceRoll() {
+  const delays = [0, 0.04, 0.08, 0.13, 0.19, 0.26, 0.35];
+  delays.forEach((d, i) => {
+    const freq = 200 + Math.random() * 260;
+    playTone(freq, 0.05, 'triangle', 0.22 - (i * 0.02), d);
+  });
+}
+
+/** 주사위 홀드 / 고정 토글 소리 (야추 다이스) */
+export function playDiceHold() {
+  playTone(620, 0.06, 'sine', 0.2);
+  playTone(830, 0.08, 'sine', 0.25, 0.04);
+}
+
+/** 칩 짤랑거리는 베팅 소리 (인디언 포커) */
+export function playChips() {
+  playTone(1200, 0.04, 'triangle', 0.18);
+  playTone(1500, 0.05, 'triangle', 0.15, 0.03);
+  playTone(950, 0.06, 'triangle', 0.12, 0.07);
+}
+
+/** 타일 내려놓기 / 딸깍 소리 (다빈치 코드 & 루미큐브) */
+export function playTilePlace() {
+  playTone(380, 0.05, 'triangle', 0.25);
+  playTone(520, 0.04, 'sine', 0.15, 0.02);
+}
+
+/** 추리 성공 / 정답 소리 (다빈치 코드 & 라이어 게임) */
+export function playCorrect() {
+  playTone(587.33, 0.12, 'sine', 0.25); // D5
+  playTone(880, 0.2, 'sine', 0.3, 0.1);  // A5
+  playTone(1174.66, 0.35, 'triangle', 0.35, 0.2); // D6
+}
+
+/** 추리 실패 / 오답 소리 */
+export function playWrong() {
+  playTone(220, 0.15, 'sawtooth', 0.25);
+  playTone(174.61, 0.25, 'sawtooth', 0.25, 0.12);
+}
+
+/** 투표 제출 소리 (라이어 게임) */
+export function playVote() {
+  playTone(440, 0.08, 'sine', 0.2);
+  playTone(659.25, 0.12, 'sine', 0.25, 0.07);
+}

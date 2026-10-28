@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="darkreader-lock" content="true"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔢 다빈치 코드 (Da Vinci Code) — 실시간 보드게임</title>
+  <meta name="description" content="상대방의 비밀 숫자 타일을 논리적으로 추리하여 모두 밝혀내는 두뇌 전략 보드게임입니다."/>
+  <link rel="stylesheet" href="css/davinci.css"/>
+</head>
+<body>
+
+  <div class="davinci-root">
+
+    <!-- ── 헤더 ── -->
+    <header class="davinci-header">
+      <div class="room-badge" id="display-room-code">ROOM: ------</div>
+      <div class="turn-status-badge" id="turn-status-badge">
+        <span id="turn-avatar">🔢</span>
+        <span id="turn-text">로딩 중...</span>
+      </div>
+      <button class="btn-leave" id="btn-leave">🚪 나가기</button>
+    </header>
+
+    <!-- ── 메인 게임 보드 ── -->
+    <main class="davinci-board">
+
+      <!-- 1. 상대 플레이어들 랙 -->
+      <section class="opponents-zone" id="opponents-zone">
+        <!-- 상대방 랙이 동적으로 렌더링됨 -->
+      </section>
+
+      <!-- 2. 중앙 타일 더미 구역 -->
+      <section class="center-pool-zone" id="center-pool-zone">
+        <div class="pool-title" id="pool-title">중앙 타일 더미 (남은 타일: 0개)</div>
+        <div class="draw-buttons-row">
+          <button class="btn-draw-tile draw-black" id="btn-draw-black" disabled>
+            <span>⬛</span>
+            <span id="label-black-count">검은색 (0)</span>
+          </button>
+          <button class="btn-draw-tile draw-white" id="btn-draw-white" disabled>
+            <span>⬜</span>
+            <span id="label-white-count">흰색 (0)</span>
+          </button>
+        </div>
+        <div style="font-size:0.75rem; color:rgba(240,240,255,0.45); text-align:center;" id="draw-hint">
+          내 턴이 오면 검은색 또는 흰색 타일을 1장 뽑으세요.
+        </div>
+      </section>
+
+      <!-- 3. 내 타일 랙 -->
+      <section class="my-rack-zone" id="my-rack-zone">
+        <div class="rack-header">
+          <div class="rack-user-info">
+            <span id="my-avatar" style="font-size:1.4rem;">🦊</span>
+            <span id="my-name">나의 타일</span>
+            <span style="font-size:0.75rem; color:#2ED573; background:rgba(46,213,115,0.15); padding:2px 8px; border-radius:6px;">나</span>
+          </div>
+          <div style="font-size:0.8rem; color:rgba(240,240,255,0.5);">
+            * 정렬 규칙: 작은 수 ➜ 큰 수 (같은 수는 검은색이 왼쪽)
+          </div>
+        </div>
+
+        <div class="tiles-stand" id="my-tiles-stand">
+          <!-- 내 타일들이 렌더링됨 -->
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ── 1. 숫자 추리 모달 (0 ~ 11) ── -->
+  <div class="modal-overlay" id="guess-modal">
+    <div class="modal-box">
+      <h3 style="font-size:1.3rem; color:var(--gold); margin-bottom:6px;">🔢 숫자 추리</h3>
+      <p style="font-size:0.85rem; color:rgba(240,240,255,0.6);" id="guess-target-desc">
+        상대방의 타일 숫자를 맞춰보세요!
+      </p>
+      <div class="guess-numbers-grid">
+        <button class="btn-num-choice" data-num="0">0</button>
+        <button class="btn-num-choice" data-num="1">1</button>
+        <button class="btn-num-choice" data-num="2">2</button>
+        <button class="btn-num-choice" data-num="3">3</button>
+        <button class="btn-num-choice" data-num="4">4</button>
+        <button class="btn-num-choice" data-num="5">5</button>
+        <button class="btn-num-choice" data-num="6">6</button>
+        <button class="btn-num-choice" data-num="7">7</button>
+        <button class="btn-num-choice" data-num="8">8</button>
+        <button class="btn-num-choice" data-num="9">9</button>
+        <button class="btn-num-choice" data-num="10">10</button>
+        <button class="btn-num-choice" data-num="11">11</button>
+      </div>
+      <button class="btn-action-choice pass" id="btn-cancel-guess" style="margin-top:14px; width:100%;">
+        닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 2. 추리 성공 후 계속 or 패스 모달 ── -->
+  <div class="modal-overlay" id="continue-modal">
+    <div class="modal-box">
+      <div style="font-size:2rem; margin-bottom:8px;">🎯</div>
+      <h3 style="font-size:1.35rem; color:#2ED573; margin-bottom:8px;">추리 성공!</h3>
+      <p style="font-size:0.9rem; color:rgba(240,240,255,0.7); line-height:1.5;">
+        상대방의 타일을 맞혔습니다!<br/>
+        계속 다른 타일을 추리하시겠습니까, 아니면 턴을 마치고 방금 뽑은 타일을 숨기시겠습니까?
+      </p>
+      <div class="choice-actions-row">
+        <button class="btn-action-choice pass" id="btn-choice-pass">
+          턴 넘기기 (안전하게 숨김)
+        </button>
+        <button class="btn-action-choice continue" id="btn-choice-continue">
+          계속 추리하기 🔥
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. 게임 종료 결과 모달 ── -->
+  <div class="modal-overlay" id="result-modal">
+    <div class="modal-box">
+      <div style="font-size:2.6rem;" id="result-trophy">🏆</div>
+      <h2 style="font-size:1.6rem; color:var(--gold); margin:8px 0;" id="result-winner-title">승리!</h2>
+      <p id="result-desc" style="font-size:0.95rem; color:rgba(240,240,255,0.7); line-height:1.6; margin-bottom:18px;">
+        <!-- 결과 안내 -->
+      </p>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-action-choice pass" id="btn-modal-lobby" style="flex:1;">
+          🏠 대기실로
+        </button>
+        <button class="btn-action-choice continue" id="btn-modal-restart" style="flex:1;">
+          🔄 다시 하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Firebase 및 게임 스크립트 연결 -->
+  <script type="module" src="js/davinci.js"></script>
+</body>
+</html>
+

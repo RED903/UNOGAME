@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="darkreader-lock" content="true"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🤫 라이어 게임 (Liar Game) — 실시간 보드게임</title>
+  <meta name="description" content="시민들 사이에 숨은 단 한 명의 라이어를 찾아라! 심리 추리 보드게임 라이어 게임입니다."/>
+  <link rel="stylesheet" href="css/liar.css"/>
+</head>
+<body>
+
+  <div class="liar-root">
+
+    <!-- ── 헤더 ── -->
+    <header class="liar-header">
+      <div class="room-badge" id="display-room-code">ROOM: ------</div>
+      <div class="phase-badge" id="phase-badge">
+        <span id="phase-icon">🤫</span>
+        <span id="phase-text">게임 준비 중...</span>
+      </div>
+      <button class="btn-leave" id="btn-leave">🚪 나가기</button>
+    </header>
+
+    <!-- ── 1. 내 비밀 역할 카드 ── -->
+    <section class="secret-card-zone">
+      <div class="secret-card" id="secret-card" title="클릭하여 제시어 숨기기/보기">
+        <div class="secret-card-top">
+          <span class="secret-category-badge" id="secret-category">카테고리: ---</span>
+          <span class="secret-toggle-hint">👁️ 탭하여 가리기/보기</span>
+        </div>
+        <div class="secret-word-display" id="secret-word">
+          확인 중...
+        </div>
+        <div style="font-size:0.75rem; color:rgba(240,240,255,0.4); text-align:center;" id="secret-role-desc">
+          자신의 역할을 확인하고 정체를 숨기세요!
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 2. 발언 타임라인 피드 ── -->
+    <section class="chat-timeline-zone" id="chat-timeline">
+      <div class="timeline-entry">
+        <div class="entry-avatar">📢</div>
+        <div class="entry-content">
+          <div class="entry-name">시스템</div>
+          <div class="entry-bubble">게임을 시작합니다. 순서대로 제시어에 대한 힌트를 한 문장씩 말해주세요!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. 발언 입력 구역 (발언 턴 시 활성화) ── -->
+    <section class="liar-input-zone" id="input-zone">
+      <input
+        type="text"
+        class="hint-input"
+        id="input-hint"
+        placeholder="내 차례가 되면 힌트를 한 문장 입력하세요..."
+        maxlength="60"
+        autocomplete="off"
+        disabled
+      />
+      <button class="btn-send" id="btn-send-hint" disabled>
+        발언하기
+      </button>
+    </section>
+
+    <!-- ── 4. 투표 구역 (발언 종료 후 등장) ── -->
+    <section class="voting-zone" id="voting-zone">
+      <div class="voting-title">🗳️ 누가 라이어인가요? 지목하여 투표하세요!</div>
+      <div class="vote-targets-grid" id="vote-targets-grid">
+        <!-- 투표 대상 카드들이 동적으로 생성됨 -->
+      </div>
+      <button class="btn-send" id="btn-submit-vote" style="align-self:center; margin-top:8px;" disabled>
+        투표 제출 완료
+      </button>
+    </section>
+
+  </div>
+
+  <!-- ── 라이어 정답 맞히기 모달 ── -->
+  <div class="modal-overlay" id="liar-guess-modal">
+    <div class="liar-guess-box">
+      <div style="font-size:2rem;">🚨</div>
+      <h2 style="color:#FF4757; font-size:1.4rem;">라이어로 지목되었습니다!</h2>
+      <p style="font-size:0.9rem; color:rgba(240,240,255,0.7); line-height:1.5;">
+        시민들이 당신을 찾아냈습니다.<br/>
+        하지만 <strong>제시어를 정확히 맞히면 라이어의 역전 승리</strong>입니다!
+      </p>
+      <input
+        type="text"
+        class="liar-guess-input"
+        id="input-liar-guess"
+        placeholder="제시어 입력"
+        maxlength="15"
+        autocomplete="off"
+      />
+      <button class="btn-send" id="btn-submit-guess" style="padding:14px;">
+        역전 정답 제출!
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 최종 결과 모달 ── -->
+  <div class="modal-overlay" id="result-modal">
+    <div class="liar-guess-box" style="border-color:#FFD700; background:rgba(20,20,38,0.95);">
+      <div style="font-size:2.5rem;" id="result-trophy">🏆</div>
+      <h2 style="color:#FFD700; font-size:1.6rem;" id="result-winner-title">승리!</h2>
+      <p id="result-summary-text" style="font-size:0.95rem; color:rgba(240,240,255,0.8); line-height:1.6;">
+        <!-- 결과 상세 텍스트 -->
+      </p>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn-send" id="btn-modal-lobby" style="flex:1; background:rgba(255,255,255,0.1);">
+          🏠 대기실로
+        </button>
+        <button class="btn-send" id="btn-modal-restart" style="flex:1; background:linear-gradient(135deg, #FF6B81, #FF4757);">
+          🔄 다음 게임
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Firebase 및 게임 스크립트 연결 -->
+  <script type="module" src="js/liar.js"></script>
+</body>
+</html>
+

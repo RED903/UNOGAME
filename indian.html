@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="darkreader-lock" content="true"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🤠 인디언 포커 (Indian Poker) — 실시간 심리 베팅</title>
+  <meta name="description" content="내 이마의 카드는 보이지 않는다! 상대방 카드와 눈빛을 읽어 승부하는 심리 서바이벌 인디언 포커입니다."/>
+  <link rel="stylesheet" href="css/indian.css"/>
+</head>
+<body>
+
+  <div class="indian-root">
+
+    <!-- ── 헤더 ── -->
+    <header class="indian-header">
+      <div class="room-badge" id="display-room-code">ROOM: ------</div>
+      <div class="round-status-badge" id="round-status-badge">
+        <span id="turn-avatar">🤠</span>
+        <span id="turn-text">로딩 중...</span>
+      </div>
+      <button class="btn-leave" id="btn-leave">🚪 나가기</button>
+    </header>
+
+    <!-- ── 메인 포커 테이블 ── -->
+    <main class="poker-table-zone">
+
+      <!-- 1. 상대방 플레이어들의 이마 카드 -->
+      <section class="opponents-row" id="opponents-row">
+        <!-- 상대방 좌석 렌더링 -->
+      </section>
+
+      <!-- 2. 중앙 팟(POT) & 칩스 -->
+      <section class="table-center-pot">
+        <div class="pot-label">TOTAL POT</div>
+        <div class="pot-amount" id="pot-amount">🪙 0</div>
+        <div class="current-bet-info" id="current-bet-info">현재 콜 금액: 0 칩</div>
+        <div class="action-log-ticker" id="action-log-ticker">라운드를 시작합니다.</div>
+      </section>
+
+      <!-- 3. 내 플레이어 영역 (내 이마 카드 & 베팅 컨트롤) -->
+      <section class="my-player-zone">
+        <div class="player-seat" id="my-seat">
+          <div class="forehead-card secret" id="my-forehead-card">
+            <span class="card-question" id="my-card-value">?</span>
+            <span style="font-size:0.7rem; color:rgba(255,255,255,0.5); margin-top:-2px;" id="my-card-label">내 이마의 카드</span>
+          </div>
+          <div class="player-seat-info">
+            <span id="my-avatar">🦊</span>
+            <span id="my-name">나</span>
+            <span class="chips-badge" id="my-chips">🪙 30</span>
+            <span style="font-size:0.75rem; color:#2ED573; background:rgba(46,213,115,0.15); padding:2px 6px; border-radius:4px;">나</span>
+          </div>
+        </div>
+
+        <!-- 베팅 조작 버튼 바 -->
+        <div class="betting-controls-bar">
+          <button class="btn-action fold" id="btn-fold" disabled>
+            다이 (Fold)
+          </button>
+          <button class="btn-action check" id="btn-check" disabled>
+            체크 (Check)
+          </button>
+          <button class="btn-action call" id="btn-call" disabled>
+            콜 (Call)
+          </button>
+          <button class="btn-action raise" id="btn-raise" disabled>
+            레이즈 (+2 칩)
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ── 쇼다운 & 라운드 결과 모달 ── -->
+  <div class="modal-overlay" id="round-result-modal">
+    <div class="modal-box">
+      <div style="font-size:2.4rem;" id="modal-result-icon">🏆</div>
+      <h3 style="font-size:1.5rem; color:var(--gold); margin:6px 0;" id="modal-result-title">라운드 종료</h3>
+      <p id="modal-result-desc" style="font-size:0.95rem; color:rgba(240,240,255,0.8); line-height:1.6; margin-bottom:16px;">
+        <!-- 라운드 결과 설명 -->
+      </p>
+      <button class="btn-action raise" id="btn-next-round" style="width:100%;" disabled>
+        다음 라운드 준비 중...
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 최종 게임 종료 모달 ── -->
+  <div class="modal-overlay" id="final-game-modal">
+    <div class="modal-box">
+      <div style="font-size:2.8rem;">👑</div>
+      <h2 style="font-size:1.6rem; color:var(--gold); margin:8px 0;" id="final-winner-title">최종 우승자 탄생!</h2>
+      <p id="final-desc" style="font-size:0.95rem; color:rgba(240,240,255,0.7); line-height:1.6; margin-bottom:18px;">
+        <!-- 최종 순위 정보 -->
+      </p>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-action fold" id="btn-final-lobby" style="flex:1;">
+          🏠 대기실로
+        </button>
+        <button class="btn-action raise" id="btn-final-restart" style="flex:1;">
+          🔄 다시 하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Firebase 및 게임 스크립트 연결 -->
+  <script type="module" src="js/indian.js"></script>
+</body>
+</html>
+

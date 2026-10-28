@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════
-// 로비 로직
-// 방 생성, 입장, 플레이어 목록 관리
+// 로비 로직 (Lobby Logic)
+// 방 생성, 입장, 플레이어 목록 관리 및 8종 게임 라우팅
 // ═══════════════════════════════════════════════════
 
 import {
@@ -17,6 +17,34 @@ let roomListener = null;
 // 프로필 아바타 리스트
 const AVATARS = ['🦊', '🐱', '🐶', '🐻', '🐼', '🦁', '🐯', '🦝', '🐺', '🦄', '🐸', '🐙'];
 let selectedAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]; // 최초 접속 시 랜덤 아바타 기본 선택
+
+// 게임별 이름 매핑 상수
+const GAME_TYPE_NAMES = {
+  yacht: '🎲 야추 다이스 (Yacht Dice)',
+  liar: '🤫 라이어 게임 (Liar Game)',
+  davinci: '🔢 다빈치 코드 (Da Vinci Code)',
+  indian: '🤠 인디언 포커 (Indian Poker)',
+  rummikub: '🧩 루미큐브 (Rummikub)',
+  uno: '🃏 UNO 카드 게임',
+  holdem: '🎰 텍사스 홀덤 포커',
+  halligalli: '🔔 할리갈리 (Halli Galli)'
+};
+
+// 게임 종류별 진입 URL 생성기
+function getGamePageUrl(targetGameType, roomCode, playerId) {
+  const routes = {
+    yacht: 'yacht.html',
+    liar: 'liar.html',
+    davinci: 'davinci.html',
+    indian: 'indian.html',
+    rummikub: 'rummikub.html',
+    uno: 'game.html',
+    holdem: 'holdem.html',
+    halligalli: 'halligalli.html'
+  };
+  const target = routes[targetGameType] || 'yacht.html';
+  return `${target}?room=${roomCode}&player=${playerId}`;
+}
 
 // DOM 요소
 const screens = {
@@ -63,27 +91,26 @@ function bindEvents() {
   });
 
   // 메인 화면 버튼
-  document.getElementById('btn-create').addEventListener('click', () => showScreen('create'));
-  document.getElementById('btn-join').addEventListener('click', () => showScreen('join'));
-  document.getElementById('btn-back-create').addEventListener('click', () => showScreen('main'));
-  document.getElementById('btn-back-join').addEventListener('click', () => showScreen('main'));
+  document.getElementById('btn-create')?.addEventListener('click', () => showScreen('create'));
+  document.getElementById('btn-join')?.addEventListener('click', () => showScreen('join'));
+  document.getElementById('btn-back-create')?.addEventListener('click', () => showScreen('main'));
+  document.getElementById('btn-back-join')?.addEventListener('click', () => showScreen('main'));
 
   // 방 생성
-  document.getElementById('btn-do-create').addEventListener('click', handleCreateRoom);
+  document.getElementById('btn-do-create')?.addEventListener('click', handleCreateRoom);
 
   // 방 입장
-  document.getElementById('btn-do-join').addEventListener('click', handleJoinRoom);
-  document.getElementById('input-room-code').addEventListener('keyup', (e) => {
+  document.getElementById('btn-do-join')?.addEventListener('click', handleJoinRoom);
+  document.getElementById('input-room-code')?.addEventListener('keyup', (e) => {
     if (e.key === 'Enter') handleJoinRoom();
-    // 대문자 자동 변환
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   });
 
   // 게임 시작 (방장만)
-  document.getElementById('btn-start').addEventListener('click', handleStartGame);
+  document.getElementById('btn-start')?.addEventListener('click', handleStartGame);
 
   // 방 나가기
-  document.getElementById('btn-leave').addEventListener('click', handleLeaveRoom);
+  document.getElementById('btn-leave')?.addEventListener('click', handleLeaveRoom);
 
   // 대기실 실시간 설정 변경 연동 (방장용)
   document.getElementById('waiting-game-type')?.addEventListener('change', handleWaitingRoomSettingChange);
@@ -103,12 +130,12 @@ async function handleWaitingRoomSettingChange() {
     const room = roomSnap.val();
     if (room.host !== myPlayerId) return; // 방장만 변경 가능
 
-    const newGameType = gameTypeSelect.value;
-    const newMaxPlayers = parseInt(maxPlayersSelect.value);
+    const updatedGameType = gameTypeSelect.value;
+    const updatedMaxPlayers = parseInt(maxPlayersSelect.value, 10);
 
     const updates = {
-      [`rooms/${myRoomCode}/gameType`]: newGameType,
-      [`rooms/${myRoomCode}/maxPlayers`]: newMaxPlayers
+      [`rooms/${myRoomCode}/gameType`]: updatedGameType,
+      [`rooms/${myRoomCode}/maxPlayers`]: updatedMaxPlayers
     };
     await update(ref(database), updates);
   } catch (err) {
@@ -132,8 +159,8 @@ async function handleCreateRoom() {
   }
 
   const gameTypeSelect = document.getElementById('select-game-type');
-  const maxPlayers = parseInt(maxPlayersSelect.value);
-  const gameType = gameTypeSelect ? gameTypeSelect.value : 'uno';
+  const maxPlayers = parseInt(maxPlayersSelect.value, 10);
+  const selectedGameType = gameTypeSelect ? gameTypeSelect.value : 'yacht';
   const roomCode = generateRoomCode();
 
   setLoading('btn-do-create', true);
@@ -145,7 +172,7 @@ async function handleCreateRoom() {
       host: myPlayerId,
       status: 'waiting',
       maxPlayers,
-      gameType, // 게임 종류 저장
+      gameType: selectedGameType, // 게임 종류 저장
       createdAt: serverTimestamp(),
       players: {
         [myPlayerId]: {
@@ -203,7 +230,7 @@ async function handleJoinRoom() {
     const room = snapshot.val();
 
     if (room.status !== 'waiting') {
-      showError('join', '이미 게임이 시작된 방입니다!');
+      showError('join', '이미 게임이 진행 중인 방입니다!');
       setLoading('btn-do-join', false);
       playError();
       return;
@@ -242,7 +269,7 @@ async function handleJoinRoom() {
   }
 }
 
-// ─── 방 나가기 ───────────────────────────────────────
+// ─── 방 나가기 (대기실에서 나갈 때) ───────────────────
 
 async function handleLeaveRoom() {
   if (!myRoomCode) return;
@@ -253,10 +280,22 @@ async function handleLeaveRoom() {
 
     if (snapshot.exists()) {
       const room = snapshot.val();
+      const players = room.players || {};
+      const remainingHumanIds = Object.keys(players).filter(id => id !== myPlayerId && !id.startsWith('bot_'));
 
       if (room.host === myPlayerId) {
-        // 방장이 나가면 방 삭제
-        await remove(roomRef);
+        if (remainingHumanIds.length > 0) {
+          // 남은 사람 중 다음 사람에게 방장 권한 위임
+          const nextHostId = remainingHumanIds[0];
+          await update(ref(database), {
+            [`rooms/${myRoomCode}/host`]: nextHostId,
+            [`rooms/${myRoomCode}/players/${nextHostId}/isHost`]: true,
+            [`rooms/${myRoomCode}/players/${myPlayerId}`]: null
+          });
+        } else {
+          // 남은 유저가 없으면 방 폭파
+          await remove(roomRef);
+        }
       } else {
         // 일반 플레이어는 자신만 제거
         await remove(ref(database, `rooms/${myRoomCode}/players/${myPlayerId}`));
@@ -279,24 +318,26 @@ async function handleStartGame() {
   if (!snapshot.exists()) return;
 
   const room = snapshot.val();
-  const gameType = room.gameType || 'uno';
+  const currentGameType = room.gameType || 'yacht';
   let playerIds = Object.keys(room.players || {});
 
   // 만약 방에 방장 혼자만 있다면 컴퓨터(봇)를 인원수에 맞춰서 자동 투입
   if (playerIds.length === 1) {
     const botNames = [
-      { name: '스마트 봇 🤖', avatar: '🤖' },
-      { name: '우노 천재 👾', avatar: '👾' },
-      { name: '눈치 빠른 AI 🧠', avatar: '🧠' },
-      { name: '행운의 알파고 🛸', avatar: '🛸' },
-      { name: '카드 카운터 🧮', avatar: '🧮' }
+      { name: '알파 주사위 🤖', avatar: '🤖' },
+      { name: '승부사 냥이 🐱', avatar: '🐱' },
+      { name: '천재 댕댕이 🐶', avatar: '🐶' },
+      { name: '블러핑 여우 🦊', avatar: '🦊' },
+      { name: '타일 마스터 🧩', avatar: '🧩' },
+      { name: '행운의 팬더 🐼', avatar: '🐼' }
     ];
     
-    // 최대 참가자 수(기본값 포함)까지 봇을 자동 생성하여 투입
-    const maxBots = Math.min(room.maxPlayers || 4, 4) - 1; // 기본적으로 유저 1명 + 봇 3마리 = 총 4인 게임 선호
+    // 최대 인원에 맞춰 적절한 봇 수 배치
+    const targetCount = Math.min(room.maxPlayers || 4, (currentGameType === 'davinci' || currentGameType === 'indian' ? 2 : 4));
+    const autoBotsCount = Math.max(1, targetCount - 1);
     const updates = {};
     
-    for (let i = 0; i < maxBots; i++) {
+    for (let i = 0; i < autoBotsCount; i++) {
       const botId = `bot_${i + 1}_${Math.random().toString(36).substr(2, 5)}`;
       const botInfo = botNames[i % botNames.length];
       
@@ -305,7 +346,7 @@ async function handleStartGame() {
         ready: true,
         isHost: false,
         avatar: botInfo.avatar,
-        isBot: true, // 봇 플래그
+        isBot: true,
         joinedAt: serverTimestamp()
       };
     }
@@ -320,8 +361,8 @@ async function handleStartGame() {
     }
   }
 
-  // 홀덤: UNO 잔여 데이터 제거 후 첫 라운드 즉시 시작 (페이지 이동 전)
-  if (gameType === 'holdem') {
+  // 홀덤 포커일 경우 첫 라운드 데이터 초기화
+  if (currentGameType === 'holdem') {
     await remove(ref(database, `rooms/${myRoomCode}/hands`));
     await remove(ref(database, `rooms/${myRoomCode}/gameState`));
 
@@ -334,9 +375,12 @@ async function handleStartGame() {
         return;
       }
     }
+  } else {
+    // 다른 게임들도 이전 잔여 gameState가 남아있다면 초기화
+    await remove(ref(database, `rooms/${myRoomCode}/gameState`));
   }
 
-  // 방 상태를 'playing'으로 변경 → gameType에 맞는 게임 화면으로 이동
+  // 방 상태를 'playing'으로 변경 -> 리스너를 통해 모든 유저가 게임 화면으로 이동
   await update(ref(database, `rooms/${myRoomCode}`), {
     status: 'playing',
     startedAt: serverTimestamp()
@@ -346,7 +390,6 @@ async function handleStartGame() {
 // ─── 방 상태 리스닝 ──────────────────────────────────
 
 function listenToRoom(roomCode) {
-  // 기존 리스너 정리
   if (roomListener && myRoomCode) {
     off(ref(database, `rooms/${myRoomCode}`), roomListener);
   }
@@ -365,14 +408,8 @@ function listenToRoom(roomCode) {
 
     // 게임 시작 시 gameType에 따라 적절한 페이지로 이동
     if (room.status === 'playing') {
-      const gameType = room.gameType || 'uno';
-      if (gameType === 'holdem') {
-        window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
-      } else if (gameType === 'halligalli') {
-        window.location.href = `halligalli.html?room=${roomCode}&player=${myPlayerId}`;
-      } else {
-        window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
-      }
+      const activeGameType = room.gameType || 'yacht';
+      window.location.href = getGamePageUrl(activeGameType, roomCode, myPlayerId);
       return;
     }
 
@@ -389,14 +426,9 @@ function updateWaitingRoom(room, roomCode) {
   // 게임 종류 배지 업데이트
   const badgeEl = document.getElementById('game-type-badge');
   if (badgeEl) {
-    const gameType = room.gameType || 'uno';
-    const gameTypeNames = {
-      uno: '🃏 UNO 카드 게임',
-      holdem: '🎰 텍사스 홀덤 포커',
-      halligalli: '🔔 할리갈리 (Halli Galli)'
-    };
-    badgeEl.textContent = gameTypeNames[gameType] || '🃏 UNO 카드 게임';
-    badgeEl.style.color = gameType === 'holdem' ? '#d4af37' : 'rgba(240,240,255,0.5)';
+    const roomGameType = room.gameType || 'yacht';
+    badgeEl.textContent = GAME_TYPE_NAMES[roomGameType] || '🎲 야추 다이스';
+    badgeEl.style.display = 'block';
   }
 
   // 실시간 대기실 설정 박스 업데이트
@@ -405,7 +437,7 @@ function updateWaitingRoom(room, roomCode) {
   const waitingMaxPlayersSelect = document.getElementById('waiting-max-players');
 
   if (waitingGameTypeSelect) {
-    waitingGameTypeSelect.value = room.gameType || 'uno';
+    waitingGameTypeSelect.value = room.gameType || 'yacht';
     waitingGameTypeSelect.disabled = !isHost; // 방장만 조작 가능
   }
   if (waitingMaxPlayersSelect) {
@@ -443,22 +475,18 @@ function updateWaitingRoom(room, roomCode) {
   // 시작 버튼 (방장만 표시)
   const startBtn = document.getElementById('btn-start');
   if (startBtn) {
-    const isHost = room.host === myPlayerId;
     startBtn.style.display = isHost ? 'block' : 'none';
-    
     if (playerEntries.length === 1) {
-      // 혼자 있을 때도 컴퓨터와 봇전을 시작할 수 있도록 허용!
       startBtn.disabled = false;
       startBtn.textContent = `🤖 컴퓨터와 대결 시작!`;
     } else {
-      // 2명 이상인 멀티플레이어
       startBtn.disabled = false;
       startBtn.textContent = `🎮 게임 시작! (${playerEntries.length}명)`;
     }
   }
 }
 
-// ─── 재입장 처리 ─────────────────────────────────────
+// ─── 재입장 처리 (새로고침 및 게임 종료 후 대기실 복귀) ──────
 
 async function rejoinRoom(roomCode) {
   try {
@@ -469,34 +497,44 @@ async function rejoinRoom(roomCode) {
     }
 
     const room = snapshot.val();
+    const players = room.players || {};
 
-    // 이미 게임 중이면 바로 game으로
-    if (room.status === 'playing') {
-      const players = room.players || {};
-      if (players[myPlayerId]) {
-        const gameType = room.gameType || 'uno';
-        if (gameType === 'holdem') {
-          window.location.href = `holdem.html?room=${roomCode}&player=${myPlayerId}`;
-        } else if (gameType === 'halligalli') {
-          window.location.href = `halligalli.html?room=${roomCode}&player=${myPlayerId}`;
-        } else {
-          window.location.href = `game.html?room=${roomCode}&player=${myPlayerId}`;
-        }
-        return true;
-      }
-    }
-
-    // 대기실이면 복원
-    if (room.status === 'waiting' && room.players?.[myPlayerId]) {
-      myRoomCode = roomCode;
-      listenToRoom(roomCode);
-      showScreen('waiting');
-      return true;
-    } else {
+    // 내가 플레이어 목록에 존재하지 않으면 세션 정리 후 메인으로
+    if (!players[myPlayerId]) {
       sessionStorage.removeItem('uno_room_code');
       return false;
     }
+
+    // [★ 핵심 수정: 대기실 복귀 버그 방지]
+    // 만약 방 상태가 playing이더라도 게임 상태가 이미 끝났거나 비어있는 경우
+    // 누군가 먼저 대기실로 복귀했으므로 방 상태를 waiting으로 동기화하고 대기실로 안전 진입!
+    const gs = room.gameState;
+    const isGameFinished = !gs || gs.phase === 'finished' || gs.status === 'finished';
+
+    if (room.status === 'waiting' || isGameFinished) {
+      myRoomCode = roomCode;
+      if (room.status !== 'waiting') {
+        // 방 상태를 waiting으로 정상 동기화
+        await update(ref(database, `rooms/${roomCode}`), {
+          status: 'waiting',
+          gameState: null
+        });
+      }
+      listenToRoom(roomCode);
+      showScreen('waiting');
+      return true;
+    }
+
+    // 실제로 게임이 여전히 진행 중인 상태에서만 게임 화면으로 복구
+    if (room.status === 'playing') {
+      const rejoiningGameType = room.gameType || 'yacht';
+      window.location.href = getGamePageUrl(rejoiningGameType, roomCode, myPlayerId);
+      return true;
+    }
+
+    return false;
   } catch (err) {
+    console.error('방 복원 에러:', err);
     sessionStorage.removeItem('uno_room_code');
     return false;
   }
@@ -509,7 +547,7 @@ function generatePlayerId() {
 }
 
 function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 혼동되는 문자 제외
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
@@ -518,14 +556,13 @@ function generateRoomCode() {
 }
 
 function getAvatar(name) {
-  // 이름 첫 글자를 이모지 스타일로
   const emojis = ['🦊', '🐱', '🐶', '🐻', '🐼', '🦁', '🐯', '🦝', '🐺', '🦄', '🐸', '🐙'];
-  const idx = name.charCodeAt(0) % emojis.length;
-  return emojis[idx];
+  const idx = (name || '').charCodeAt(0) % emojis.length;
+  return emojis[idx] || '🎮';
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function showScreen(name) {
@@ -568,19 +605,16 @@ function cleanupRoom() {
   myRoomCode = null;
   sessionStorage.removeItem('uno_room_code');
   if (roomListener) {
-    // 리스너 제거
     roomListener = null;
   }
 }
 
 /** 아바타 선택기 UI 초기화 및 동기화 */
 function initAvatarSelectors() {
-  // 이전 세션에서 저장된 아바타 있으면 복원
   const savedAvatar = sessionStorage.getItem('uno_player_avatar');
   if (savedAvatar && AVATARS.includes(savedAvatar)) {
     selectedAvatar = savedAvatar;
   } else {
-    // 기본값 지정
     sessionStorage.setItem('uno_player_avatar', selectedAvatar);
   }
 
@@ -596,14 +630,11 @@ function initAvatarSelectors() {
 
     grid.querySelectorAll('.avatar-select-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        // 모든 아바타 버튼에서 selected 제거
         grid.querySelectorAll('.avatar-select-btn').forEach(b => b.classList.remove('selected'));
-        // 이 버튼만 selected 추가
         btn.classList.add('selected');
         selectedAvatar = btn.dataset.avatar;
         sessionStorage.setItem('uno_player_avatar', selectedAvatar);
 
-        // 반대편 모드 아바타 그리드도 연계 동기화 (방만들기 ↔ 방참가)
         const otherMode = mode === 'create' ? 'join' : 'create';
         const otherGrid = document.getElementById(`${otherMode}-avatar-grid`);
         if (otherGrid) {

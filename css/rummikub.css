@@ -1,0 +1,308 @@
+/* ═══════════════════════════════════════════════════
+   루미큐브 (Rummikub) 전용 스타일시트
+   글래스모피즘 & 3D 컬러 타일 & 2단 랙 & 반응형
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --rummi-bg: #0F172A;
+  --board-bg: rgba(30, 41, 59, 0.7);
+  --board-border: rgba(255, 255, 255, 0.12);
+  --rack-bg: linear-gradient(180deg, #334155 0%, #1E293B 100%);
+  --gold: #FFD700;
+  --red: #EF4444;
+  --blue: #3B82F6;
+  --yellow: #F59E0B;
+  --black: #0F172A;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  background-color: var(--rummi-bg);
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(239, 68, 68, 0.12) 0%, transparent 40%);
+  color: #F8FAFC;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+.rummi-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px;
+  gap: 12px;
+}
+
+/* ─── 헤더 ─── */
+.rummi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--board-bg);
+  border: 1px solid var(--board-border);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 10px 18px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+.room-badge {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.turn-indicator {
+  font-size: 1.05rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-leave {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-leave:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fff;
+}
+
+/* ─── 플레이어 진행 탭 ─── */
+.players-status-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.player-status-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.player-status-chip.current-turn {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ─── 공용 보드판 (Meld Board) ─── */
+.board-zone {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid #334155;
+  border-radius: 20px;
+  padding: 16px;
+  min-height: 280px;
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 16px;
+  box-shadow: inset 0 4px 20px rgba(0,0,0,0.6);
+}
+
+.board-empty-hint {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.95rem;
+  gap: 6px;
+}
+
+/* 보드판 위의 타일 세트 묶음 */
+.tile-set-cluster {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 6px 8px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* ─── 3D 루미큐브 타일 ─── */
+.rummi-tile {
+  width: 44px;
+  height: 60px;
+  background: linear-gradient(145deg, #FFFDF8 0%, #F1EDE2 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.35rem;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+
+.rummi-tile:hover {
+  transform: translateY(-4px);
+}
+
+.rummi-tile.selected {
+  transform: translateY(-8px);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.8);
+}
+
+/* 타일 색상별 텍스트 */
+.rummi-tile.red { color: #DC2626; }
+.rummi-tile.blue { color: #2563EB; }
+.rummi-tile.yellow { color: #D97706; }
+.rummi-tile.black { color: #1E293B; }
+.rummi-tile.joker-red { color: #DC2626; font-size: 1.5rem; }
+.rummi-tile.joker-black { color: #1E293B; font-size: 1.5rem; }
+
+/* ─── 내 타일 랙 (Rack) & 컨트롤 ─── */
+.my-rack-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rack-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rack-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-rack-util {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-rack-util:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.btn-main-action {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-main-action.meld {
+  background: linear-gradient(135deg, var(--gold), #F59E0B);
+  color: #111;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+.btn-main-action.meld:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn-main-action.draw {
+  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.btn-main-action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* 2단 타일 랙 */
+.my-tiles-rack {
+  background: var(--rack-bg);
+  border: 2px solid #475569;
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 140px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+/* ─── 모달 공통 ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid var(--board-border);
+  border-radius: 22px;
+  padding: 30px;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+

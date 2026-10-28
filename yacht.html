@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="darkreader-lock" content="true"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎲 야추 다이스 (Yacht Dice) — 실시간 보드게임</title>
+  <meta name="description" content="5개의 주사위를 굴리고 최적의 족보를 완성하여 승리하는 실시간 멀티플레이 야추 게임입니다."/>
+  <link rel="stylesheet" href="css/yacht.css"/>
+</head>
+<body>
+
+  <div class="yacht-root">
+
+    <!-- ── 상단 헤더 ── -->
+    <header class="yacht-header">
+      <div class="room-badge" id="display-room-code">ROOM: ------</div>
+      <div class="turn-indicator" id="turn-indicator">
+        <span id="turn-avatar">🎲</span>
+        <span id="turn-text">로딩 중...</span>
+      </div>
+      <button class="btn-leave" id="btn-leave">🚪 나가기</button>
+    </header>
+
+    <!-- ── 메인 게임 영역 ── -->
+    <main class="yacht-main">
+
+      <!-- ── 1. 좌측: 주사위 롤존 ── -->
+      <section class="dice-zone">
+        <div class="round-info-bar">
+          <div class="round-text" id="round-text">라운드 1 / 12</div>
+          <div class="rolls-left-badge" id="rolls-left-badge">남은 굴림: 3회</div>
+        </div>
+
+        <!-- 주사위 5개 트레이 -->
+        <div class="dice-tray" id="dice-tray">
+          <!-- 5개 주사위 요소가 JS에서 생성됨 -->
+        </div>
+
+        <!-- 주사위 조작 버튼 -->
+        <div class="dice-controls">
+          <button class="btn-roll" id="btn-roll">
+            <span>🎲</span>
+            <span id="btn-roll-text">주사위 굴리기 (3/3)</span>
+          </button>
+          <div class="roll-hint" id="roll-hint">
+            주사위를 클릭하여 원하는 눈을 고정(HOLD)하세요
+          </div>
+        </div>
+
+        <!-- 감정표현 바 -->
+        <div class="emotes-bar" id="emotes-bar">
+          <span style="font-size:0.75rem; color:rgba(240,240,255,0.4); margin-right:4px;">감정표현:</span>
+          <button class="btn-emote" data-emote="🎉">🎉</button>
+          <button class="btn-emote" data-emote="😎">😎</button>
+          <button class="btn-emote" data-emote="😱">😱</button>
+          <button class="btn-emote" data-emote="🤔">🤔</button>
+          <button class="btn-emote" data-emote="🔥">🔥</button>
+          <button class="btn-emote" data-emote="🎲">🎲</button>
+        </div>
+      </section>
+
+      <!-- ── 2. 우측: 스코어보드 시트 ── -->
+      <section class="scoreboard-zone">
+        <!-- 플레이어 전환 탭 -->
+        <div class="score-tabs" id="score-tabs">
+          <!-- 각 플레이어의 탭이 동적으로 생성됨 -->
+        </div>
+
+        <!-- 스코어보드 테이블 -->
+        <div class="score-table-wrap">
+          <table class="score-table" id="score-table">
+            <thead>
+              <tr>
+                <th>카테고리</th>
+                <th style="text-align:right;">점수</th>
+              </tr>
+            </thead>
+            <tbody id="score-tbody">
+              <!-- JS에서 카테고리 행 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ── 게임 종료 결과 모달 ── -->
+  <div class="modal-overlay" id="game-over-modal">
+    <div class="modal-box">
+      <div class="modal-title">🏆 게임 종료!</div>
+      <p style="color:rgba(240,240,255,0.6); font-size:0.9rem; margin-bottom:16px;">최종 점수 순위</p>
+      <div id="rankings-list">
+        <!-- 순위 목록 -->
+      </div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn-roll" id="btn-modal-lobby" style="flex:1; background:rgba(255,255,255,0.1); box-shadow:none;">
+          🏠 대기실로
+        </button>
+        <button class="btn-roll" id="btn-modal-restart" style="flex:1;">
+          🔄 다시 하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Firebase 및 게임 로직 연결 -->
+  <script type="module" src="js/yacht.js"></script>
+</body>
+</html>
+

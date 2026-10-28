@@ -1,0 +1,384 @@
+/* ═══════════════════════════════════════════════════
+   다빈치 코드 (Da Vinci Code) 전용 스타일시트
+   고급 목재 테이블 & 3D 블랙/화이트 타일 & 모바일 반응형
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --table-bg: #0C121E;
+  --panel-bg: rgba(18, 25, 42, 0.75);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --gold: #FFD700;
+  --accent-blue: #3867D6;
+  --accent-red: #EB3B5A;
+  --accent-green: #20BF6B;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  background-color: var(--table-bg);
+  background-image: 
+    radial-gradient(circle at 50% 30%, rgba(56, 103, 214, 0.15) 0%, transparent 60%),
+    radial-gradient(circle at 10% 90%, rgba(235, 59, 90, 0.1) 0%, transparent 40%);
+  color: #F0F0FF;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+.davinci-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  gap: 16px;
+}
+
+/* ─── 헤더 ─── */
+.davinci-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 12px 20px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+.room-badge {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.turn-status-badge {
+  font-size: 1.05rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-leave {
+  background: rgba(235, 59, 90, 0.15);
+  border: 1px solid rgba(235, 59, 90, 0.4);
+  color: #EB3B5A;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-leave:hover {
+  background: rgba(235, 59, 90, 0.3);
+  color: #fff;
+}
+
+/* ─── 메인 보드 ─── */
+.davinci-board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* 상대방 플레이어 랙 구역 */
+.opponents-zone {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.player-rack-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  transition: all 0.2s;
+}
+
+.player-rack-card.active-turn {
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.player-rack-card.eliminated {
+  opacity: 0.4;
+  filter: grayscale(80%);
+}
+
+.rack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rack-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* 타일 거치대 (Tile Rack) */
+.tiles-stand {
+  min-height: 85px;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.7) 0%, rgba(45, 30, 20, 0.9) 100%);
+  border: 2px solid #5a3d28;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  box-shadow: inset 0 4px 12px rgba(0,0,0,0.7);
+  overflow-x: auto;
+}
+
+/* ─── 3D 타일 비주얼 ─── */
+.tile-item {
+  width: 48px;
+  height: 68px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-weight: 900;
+  font-size: 1.4rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.4);
+  cursor: default;
+}
+
+.tile-item.selectable {
+  cursor: pointer;
+}
+.tile-item.selectable:hover {
+  transform: translateY(-8px) scale(1.08);
+  box-shadow: 0 12px 24px rgba(255, 215, 0, 0.6);
+  border: 2px solid var(--gold);
+}
+
+/* 검은색 타일 */
+.tile-item.black {
+  background: linear-gradient(145deg, #2b2b2b 0%, #111111 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* 흰색 타일 */
+.tile-item.white {
+  background: linear-gradient(145deg, #ffffff 0%, #dcdde1 100%);
+  color: #1E272E;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* 비공개 타일 (상대방 기준) */
+.tile-item.secret {
+  color: transparent !important;
+}
+.tile-item.secret::after {
+  content: '🔒';
+  font-size: 1rem;
+  position: absolute;
+  opacity: 0.35;
+}
+
+/* 방금 새로 뽑은 타일 (노란 글로우) */
+.tile-item.new-drawn {
+  border: 2px solid var(--gold) !important;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.8) !important;
+  transform: translateY(-4px);
+}
+
+/* ─── 중앙: 타일 덱 더미 구역 ─── */
+.center-pool-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 16px;
+  align-self: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.pool-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(240,240,255,0.6);
+}
+
+.draw-buttons-row {
+  display: flex;
+  gap: 16px;
+}
+
+.btn-draw-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-draw-tile.draw-black {
+  background: linear-gradient(135deg, #222, #000);
+  color: #fff;
+  border-color: rgba(255,255,255,0.25);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.btn-draw-tile.draw-white {
+  background: linear-gradient(135deg, #fff, #ddd);
+  color: #111;
+  border-color: rgba(0,0,0,0.2);
+  box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+}
+
+.btn-draw-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.4);
+  border-color: var(--gold);
+}
+
+.btn-draw-tile:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ─── 하단: 내 타일 랙 ─── */
+.my-rack-zone {
+  background: var(--panel-bg);
+  border: 1.5px solid var(--panel-border);
+  backdrop-filter: blur(14px);
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.my-rack-zone.active-turn {
+  border-color: var(--gold);
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.35);
+}
+
+/* ─── 추리 번호 선택 모달 ─── */
+.guess-numbers-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn-num-choice {
+  padding: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-num-choice:hover {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: var(--gold);
+  transform: scale(1.08);
+}
+
+/* ─── 연속 추리 vs 패스 모달 ─── */
+.choice-actions-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.btn-action-choice {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-action-choice.continue {
+  background: linear-gradient(135deg, var(--gold), #FFA502);
+  color: #111;
+}
+.btn-action-choice.pass {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.btn-action-choice:hover {
+  transform: translateY(-2px);
+}
+
+/* ─── 모달 공통 ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 22, 0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  padding: 28px;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+

@@ -1,193 +1,68 @@
-# 🎴 UNO Online - 실시간 멀티플레이어
+# 🎲 Board Arena - 실시간 멀티플레이어 보드게임 & 카드게임 라운지
 
-> **GitHub Pages + Firebase Realtime Database**로 구동되는 UNO 카드 게임
-
-[![GitHub Pages](https://img.shields.io/badge/GitHub_Pages-deployed-brightgreen)](https://your-username.github.io/UNO)
-[![Firebase](https://img.shields.io/badge/Firebase-Realtime_DB-orange)](https://firebase.google.com)
+> **GitHub Pages + Firebase Realtime Database**로 구동되는 통합 온라인 보드게임 플랫폼  
+> 혼자서도 즐길 수 있는 **지능형 AI 봇전** 및 친구들과 함께하는 **실시간 멀티플레이** 완벽 지원!
 
 ---
 
-## 🎮 게임 방법
+## 🎮 지원 게임 목록 (총 8종)
 
-1. 사이트에 접속 후 **닉네임 입력**
-2. **방 만들기** → 6자리 코드 생성
-3. 코드를 친구에게 공유
-4. 친구는 **방 입장하기** → 코드 입력
-5. 방장이 **게임 시작!** 클릭
-6. UNO 규칙대로 게임!
-
----
-
-## 🃏 UNO 규칙 요약
-
-| 카드 | 효과 |
-|------|------|
-| 숫자 0-9 | 같은 색상 또는 같은 숫자 위에 낼 수 있음 |
-| Skip | 다음 플레이어 건너뜀 |
-| Reverse | 방향 전환 (2명일 때는 Skip과 동일) |
-| Draw Two (+2) | 다음 플레이어 카드 2장 뽑음 |
-| Wild | 색상 변경 |
-| Wild Draw Four (+4) | 색상 변경 + 다음 플레이어 4장 뽑음 |
-
-> **UNO 선언**: 패가 1장 남으면 반드시 **UNO!** 버튼을 눌러야 합니다.  
-> 선언하지 않으면 상대방이 **UNO 잡기** 버튼으로 패널티 +2장을 줄 수 있습니다.
+1. **🎲 야추 다이스 (Yacht Dice)**: 5개의 주사위를 굴리고 최적의 족보를 완성하여 점수를 겨루는 정통 주사위 전략 게임 (상단 보너스 +35점 지원!)
+2. **🤫 라이어 게임 (Liar Game)**: 100여 개 이상의 다양한 단어장! 시민들 사이에 숨은 단 한 명의 라이어를 찾는 긴장감 넘치는 심리 추리 게임 (라이어 역전 정답 기회 제공!)
+3. **🔢 다빈치 코드 (Da Vinci Code)**: 흑/백 숫자 타일의 오름차순 정렬 규칙과 소거법을 활용해 상대방의 비밀 타일을 간파하는 명작 두뇌 게임
+4. **🤠 인디언 포커 (Indian Poker)**: 내 카드는 안 보이고 상대방 카드만 보인다! 칩 베팅, 심리전, 블러핑의 끝판왕
+5. **🧩 루미큐브 (Rummikub)**: 1~13 숫자와 4개 색상, 조커를 조합(그룹 & 런)하여 손패를 가장 먼저 털어내는 타일 보드게임 (30점 최초 등록 룰 지원!)
+6. **🃏 UNO 카드 게임**: 전 세계 1위 파티 카드 게임 (Skip, Reverse, +2, +4, Wild 등)
+7. **🎰 텍사스 홀덤 포커 (Texas Hold'em)**: 실시간 칩 베팅과 핸드 족보 판정
+8. **🔔 할리갈리 (Halli Galli)**: 과일 5개가 되는 순간 종을 치는 스피드 순발력 대결!
 
 ---
 
-## 🚀 GitHub Pages 배포 방법
+## 🕹️ 시작하는 방법
 
-### 1단계: Firebase 프로젝트 생성 (필수!)
-
-> ⚠️ 기본 설정의 Firebase는 데모용입니다. **본인의 Firebase 프로젝트**를 만들어야 정상 작동합니다.
-
-1. [Firebase Console](https://console.firebase.google.com) 접속
-2. **프로젝트 추가** 클릭
-3. 프로젝트 이름 입력 (예: `my-uno-game`)
-4. Google Analytics는 선택사항 (없어도 됨)
-5. 프로젝트 생성 완료 후 **⚙️ 프로젝트 설정** 클릭
-6. **일반 탭** → 스크롤 내려서 **Firebase SDK 구성 및 스니펫** → **구성** 선택
-7. 아래처럼 생긴 코드가 나옵니다:
-
-```js
-const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "my-uno-game.firebaseapp.com",
-  databaseURL: "https://my-uno-game-default-rtdb.firebaseio.com",
-  projectId: "my-uno-game",
-  storageBucket: "my-uno-game.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123...:web:abc..."
-};
-```
-
-### 2단계: Realtime Database 활성화
-
-1. Firebase Console 왼쪽 메뉴 → **Realtime Database**
-2. **데이터베이스 만들기** 클릭
-3. 지역: `asia-southeast1 (Singapore)` 선택 (한국에서 가장 가까움)
-4. 보안 규칙: **테스트 모드로 시작** 선택 (30일간 자유 접근)
-
-### 3단계: 보안 규칙 설정 (중요!)
-
-Firebase Console → Realtime Database → **규칙 탭**:
-
-```json
-{
-  "rules": {
-    "rooms": {
-      "$roomId": {
-        ".read": true,
-        ".write": true,
-        "hands": {
-          "$playerId": {
-            ".read": "auth == null || true",
-            ".write": "auth == null || true"
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-> 💡 이 규칙은 누구나 읽고 쓸 수 있게 합니다. 인증 없는 게임에는 충분합니다.
-
-### 4단계: firebase-config.js 수정
-
-`js/firebase-config.js` 파일을 열고 `firebaseConfig` 객체를 복사한 값으로 교체:
-
-```js
-const firebaseConfig = {
-  apiKey: "여기에_복사한_값",
-  authDomain: "여기에_복사한_값",
-  databaseURL: "여기에_복사한_값",  // ← 반드시 필요!
-  projectId: "여기에_복사한_값",
-  // ...
-};
-```
-
-### 5단계: GitHub에 올리기
-
-```bash
-git init
-git add .
-git commit -m "🎴 UNO 온라인 게임 초기 배포"
-git remote add origin https://github.com/YOUR_USERNAME/UNO.git
-git push -u origin main
-```
-
-### 6단계: GitHub Pages 활성화
-
-1. GitHub 저장소 → **Settings** 탭
-2. 왼쪽 메뉴 → **Pages**
-3. Source: **Deploy from a branch**
-4. Branch: `main` / `/(root)`
-5. **Save** 클릭
-
-약 1~2분 후 `https://YOUR_USERNAME.github.io/UNO` 에서 접속 가능!
+1. `index.html`에 접속 후 **닉네임** 및 **아바타** 선택
+2. **게임 종류** 선택 (야추, 라이어, 다빈치, 인디언, 루미큐브 등)
+3. **방 만들기** 클릭 시 6자리 방 코드 생성
+4. 친구에게 방 코드를 공유하여 입장하거나, **혼자서도 컴퓨터 봇들과 즉시 플레이 가능!**
+5. 방장이 **게임 시작**을 누르면 실시간 게임이 즉시 시작됩니다.
 
 ---
 
-## 📁 파일 구조
+## 🎲 각 게임별 핵심 룰 요약
 
-```
-UNO/
-├── index.html          # 로비 화면 (방 만들기/입장/대기)
-├── game.html           # 게임 화면
-├── css/
-│   ├── main.css        # 공통 디자인 시스템
-│   └── game.css        # 게임 전용 스타일
-├── js/
-│   ├── firebase-config.js  # ⚠️ Firebase 설정 (교체 필요!)
-│   ├── uno-rules.js        # UNO 규칙 엔진
-│   ├── card-renderer.js    # SVG 카드 렌더링
-│   ├── lobby.js            # 로비 로직
-│   ├── game.js             # 게임 메인 로직
-│   └── sound.js            # 효과음 (Web Audio API)
-└── README.md
-```
+### 1. 🎲 야추 다이스 (Yacht Dice)
+- 턴마다 주사위를 최대 3번 굴릴 수 있으며, 원하는 주사위는 **HOLD(고정)** 할 수 있습니다.
+- 12가지 카테고리 중 아직 비어있는 칸 하나를 골라 점수를 기록합니다.
+- Aces~Sixes 상단 섹션 총점이 **63점 이상이면 +35점 보너스**를 획득합니다.
+- 12라운드 후 총점이 가장 높은 플레이어가 승리합니다.
 
----
+### 2. 🤫 라이어 게임 (Liar Game)
+- 참가자 중 1명이 무작위로 **라이어**로 지정되고, 시민들에게는 제시어가 주어집니다.
+- 순서대로 한 문장씩 제시어에 대한 힌트를 발언합니다. (라이어는 눈치껏 둘러대야 합니다)
+- 발언 종료 후 라이어로 의심되는 사람을 지목해 투표합니다.
+- 라이어가 검거되면 라이어에게 **제시어를 맞힐 마지막 역전 기회**가 주어집니다!
 
-## 🔧 기술 스택
+### 3. 🔢 다빈치 코드 (Da Vinci Code)
+- 검은색과 흰색 타일 (0~11)은 항상 **왼쪽에서 오른쪽으로 오름차순**으로 자동 정렬됩니다.
+- 같은 숫자인 경우 **검은색이 항상 왼쪽, 흰색이 오른쪽**에 위치합니다.
+- 내 턴에 중앙에서 타일 1장을 뽑고, 상대방의 비공개 타일 숫자를 추리합니다.
+- 맞히면 계속 추리하거나 안전하게 패스할 수 있고, 틀리면 방금 뽑은 타일이 강제 공개됩니다!
 
-- **HTML / CSS / JavaScript** (순수 바닐라, 프레임워크 없음)
-- **Firebase Realtime Database** (실시간 멀티플레이)
-- **Web Audio API** (효과음, 외부 파일 없음)
-- **SVG 카드 렌더링** (이미지 파일 없음)
-- **Google Fonts** (Outfit)
+### 4. 🤠 인디언 포커 (Indian Poker)
+- 내 이마의 카드는 나에게는 안 보이고, 상대방의 카드는 선명하게 보입니다.
+- 기본 안티 1칩을 지불한 뒤, 체크 / 콜 / 레이즈 / 다이(Fold)로 베팅 레이스를 진행합니다.
+- 쇼다운 시 카드를 공개하여 숫자가 더 높은 플레이어가 팟 전체를 획득합니다. (10 들고 다이 시 패널티 5칩!)
 
----
-
-## ⚡ 로컬 테스트
-
-Firebase 연결 없이 로컬에서 테스트하려면 `index.html`을 로컬 서버로 열어야 합니다 (ES Module 때문에 file:// 직접 열기는 안 됩니다):
-
-```bash
-# Python 사용
-python -m http.server 8080
-
-# Node.js 사용
-npx serve .
-```
-
-그 후 `http://localhost:8080` 접속.
+### 5. 🧩 루미큐브 (Rummikub)
+- **그룹**: 같은 숫자, 다른 색상 3~4개 (예: 🔴7, 🔵7, 🟡7)
+- **런**: 같은 색상, 연속된 숫자 3개 이상 (예: 🔵4, 🔵5, 🔵6)
+- **최초 등록**: 첫 세트 등록 시 숫자 합계가 30점 이상이어야 합니다.
+- 손패의 타일을 가장 먼저 모두 내려놓는 플레이어가 승리합니다.
 
 ---
 
-## 🐛 문제 해결
-
-| 문제 | 해결법 |
-|------|--------|
-| Firebase 연결 실패 | `firebase-config.js`의 `databaseURL` 확인 |
-| 게임이 시작 안 됨 | 방장이 시작 버튼을 눌렀는지 확인 |
-| 카드가 안 보임 | 브라우저 콘솔(F12) 오류 확인 |
-| 실시간 동기화 안 됨 | Firebase 보안 규칙 확인 |
-
----
-
-## 📜 라이선스
-
-MIT License - 자유롭게 사용, 수정, 배포 가능합니다.
-
-> UNO는 Mattel의 등록 상표입니다. 이 프로젝트는 팬 메이드 비영리 구현입니다.
+## 🛠️ 기술 스택 & 특징
+- **Frontend**: HTML5, Vanilla JavaScript (ES Module), CSS3 (Glassmorphism & 3D Keyframe Animations)
+- **Backend / Sync**: Firebase Realtime Database
+- **Audio Engine**: Web Audio API 기반 무의존성 사운드 신디사이저 (`js/sound.js`)
+- **Responsive**: PC, 태블릿, 모바일 스마트폰 전 기기 완벽 대응

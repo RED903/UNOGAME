@@ -1941,3 +1941,24 @@ updatePlayerSidebars = function(room) {
   if (room && room.players) roomPlayersCache = room.players;
   originalUpdatePlayerSidebars(room);
 };
+
+
+// ─── 방 코드 표시 및 클릭 시 숨기기 토글 ───
+document.addEventListener('DOMContentLoaded', () => {
+  const codeEl = document.getElementById('header-room-code');
+  if (codeEl) {
+    const params = new URLSearchParams(window.location.search);
+    const rCode = params.get('room') || sessionStorage.getItem('uno_room_code') || '';
+    let isHidden = false;
+    const renderCode = () => {
+      codeEl.textContent = isHidden ? '•••••• 👁️' : `${rCode} 🔒`;
+    };
+    renderCode();
+    codeEl.style.cursor = 'pointer';
+    codeEl.title = '클릭하여 방 코드 숨기기/보기';
+    codeEl.addEventListener('click', () => {
+      isHidden = !isHidden;
+      renderCode();
+    });
+  }
+});

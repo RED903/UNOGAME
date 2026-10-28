@@ -143,12 +143,46 @@ body {
 .chips-badge {
   color: var(--chip-gold);
   font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ─── 절대 깨지지 않는 황금 카지노 칩 아이콘 ─── */
+.chip-coin-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #FFF275 0%, #FFA502 60%, #B35400 100%);
+  border: 1.5px dashed #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4), 0 0 8px rgba(255, 215, 0, 0.6);
+  color: #573300;
+  font-weight: 900;
+  font-size: 0.72rem;
+  line-height: 1;
+  vertical-align: middle;
+  position: relative;
+  margin-right: 4px;
+}
+.chip-coin-icon::after {
+  content: '$';
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-shadow: 0 0.5px 0 rgba(255,255,255,0.7);
+}
+
+.pot-amount-val .chip-coin-icon {
+  width: 26px;
+  height: 26px;
+  font-size: 0.9rem;
+  border: 2px dashed #FFFFFF;
 }
 
 /* ─── 3D 이마 카드 (Forehead Card) ─── */
 .forehead-card {
-  width: 76px;
-  height: 108px;
+  width: 80px;
+  height: 116px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -156,49 +190,81 @@ body {
   justify-content: center;
   box-shadow: 0 10px 25px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.6);
   position: relative;
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: #FFF;
 }
 
 .player-seat.current-turn .forehead-card {
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 10px 25px rgba(0,0,0,0.6);
+  box-shadow: 0 0 22px rgba(255, 215, 0, 0.85), 0 10px 25px rgba(0,0,0,0.6);
   border: 2px solid var(--gold);
 }
 
-/* 카드 앞면 (상대방 카드 - 숫자 공개) */
+/* 카드 앞면 (상대방 카드 - 숫자 및 무늬 공개) */
 .forehead-card.open {
-  background: linear-gradient(145deg, #ffffff 0%, #f1f2f6 100%);
-  color: #B33939;
-  border: 2px solid #fff;
+  background: linear-gradient(145deg, #ffffff 0%, #f7f8fa 100%);
+  border: 1.5px solid #E2E8F0;
+  position: relative;
+  padding: 4px;
+}
+
+.forehead-card.open.suit-red {
+  color: #E74C3C;
+}
+
+.forehead-card.open.suit-black {
+  color: #1E272E;
+}
+
+.card-corner-top {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.card-corner-bottom {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: rotate(180deg);
 }
 
 .card-num {
-  font-size: 2.4rem;
+  font-size: 2.3rem;
   font-weight: 900;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.1);
 }
 
 .card-suit {
-  font-size: 0.9rem;
-  margin-top: -4px;
+  font-size: 1.1rem;
+  margin-top: 2px;
+  line-height: 1;
 }
 
-/* 카드 뒷면 (내 카드 - 물음표) */
+/* 카드 뒷면 (내 카드 - 미스터리 물음표) */
 .forehead-card.secret {
   background: repeating-linear-gradient(
     45deg,
-    #2C3A47,
-    #2C3A47 10px,
-    #130f40 10px,
-    #130f40 20px
+    #1E272E,
+    #1E272E 8px,
+    #0F1418 8px,
+    #0F1418 16px
   );
   border: 2px solid #576574;
-  color: #FFD700;
+  color: var(--gold);
 }
 
 .card-question {
-  font-size: 2.4rem;
+  font-size: 2.6rem;
   font-weight: 900;
-  opacity: 0.85;
+  opacity: 0.9;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.8);
 }
 
 /* ─── 중앙 팟 (POT) & 칩스 ─── */
@@ -207,29 +273,35 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  background: rgba(0,0,0,0.5);
-  border: 1.5px solid rgba(255, 215, 0, 0.4);
-  padding: 12px 28px;
-  border-radius: 20px;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
+  background: rgba(18, 10, 15, 0.7);
+  border: 1.5px solid rgba(255, 215, 0, 0.35);
+  padding: 10px 24px;
+  border-radius: 18px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+  max-width: 380px;
 }
 
-.pot-label {
-  font-size: 0.75rem;
+.pot-compact-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pot-title-label {
+  font-size: 0.78rem;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: rgba(240,240,255,0.6);
 }
 
-.pot-amount {
-  font-size: 2.2rem;
+.pot-amount-val {
+  font-size: 1.8rem;
   font-weight: 900;
   color: var(--gold);
-  text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
 }
 
-.current-bet-info {
+.call-needed-badge {
   font-size: 0.8rem;
   color: rgba(240,240,255,0.7);
 }

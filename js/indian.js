@@ -40,6 +40,12 @@ const turnAvatar = document.getElementById('turn-avatar');
 const turnText = document.getElementById('turn-text');
 const btnLeave = document.getElementById('btn-leave');
 
+let isCodeHidden = false;
+function updateRoomCodeText() {
+  if (!displayRoomCode) return;
+  displayRoomCode.textContent = isCodeHidden ? 'ROOM: •••••• 👁️' : `ROOM: ${myRoomCode} 🔒`;
+}
+
 const opponentsRow = document.getElementById('opponents-row');
 const potAmount = document.getElementById('pot-amount');
 const currentBetInfo = document.getElementById('current-bet-info');
@@ -70,7 +76,11 @@ const btnFinalRestart = document.getElementById('btn-final-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  displayRoomCode.textContent = `ROOM: ${myRoomCode}`;
+  updateRoomCodeText();
+  displayRoomCode.addEventListener('click', () => {
+    isCodeHidden = !isCodeHidden;
+    updateRoomCodeText();
+  });
   bindUiEvents();
 
   try {
@@ -198,7 +208,7 @@ function renderIndianTable(gs) {
     turnText.style.color = '#F0F0FF';
   }
 
-  potAmount.textContent = `🪙 ${gs.pot}`;
+  potAmount.innerHTML = `<span class="chip-coin-icon"></span> ${gs.pot}`;
   const myBet = gs.playerBets[myPlayerId] || 0;
   const toCall = Math.max(0, gs.currentBet - myBet);
   currentBetInfo.textContent = `현재 최고 베팅: ${gs.currentBet} 칩 | 내가 맞출 칩: ${toCall} 칩`;
@@ -234,13 +244,17 @@ function renderOpponentsSeat(gs, currentPid) {
     seat.className = `player-seat ${isTheirTurn ? 'current-turn' : ''} ${isFolded ? 'folded' : ''}`;
 
     const cardEl = document.createElement('div');
-    cardEl.className = 'forehead-card open';
     if (pCard) {
+      const suitColor = pCard.color || 'black';
+      cardEl.className = `forehead-card open suit-${suitColor}`;
       cardEl.innerHTML = `
+        <div class="card-corner-top">${pCard.symbol}</div>
         <span class="card-num">${pCard.value}</span>
-        <span class="card-suit">♠</span>
+        <span class="card-suit">${pCard.symbol}</span>
+        <div class="card-corner-bottom">${pCard.symbol}</div>
       `;
     } else {
+      cardEl.className = 'forehead-card open';
       cardEl.innerHTML = `<span class="card-num">-</span>`;
     }
 
@@ -249,7 +263,7 @@ function renderOpponentsSeat(gs, currentPid) {
     info.innerHTML = `
       <span>${p.avatar || '👤'}</span>
       <span>${escapeHtml(p.name)}</span>
-      <span class="chips-badge">🪙 ${pChips}</span>
+      <span class="chips-badge"><span class="chip-coin-icon"></span> ${pChips}</span>
       ${isFolded ? '<span style="color:#FF4757; font-size:0.75rem;">(다이)</span>' : ''}
     `;
 
@@ -262,14 +276,20 @@ function renderOpponentsSeat(gs, currentPid) {
 function renderMySeat(gs) {
   const myCard = gs.cards?.[myPlayerId];
   const myChips = gs.chips?.[myPlayerId] || 0;
-  myChipsEl.textContent = `🪙 ${myChips}`;
+  myChipsEl.innerHTML = `<span class="chip-coin-icon"></span> ${myChips}`;
 
   if (gs.phase === 'showdown' && myCard) {
-    myForeheadCard.className = 'forehead-card open';
-    myCardValue.textContent = myCard.value;
+    const myColor = myCard.color || 'black';
+    myForeheadCard.className = `forehead-card open suit-${myColor}`;
+    myForeheadCard.innerHTML = `
+      <div class="card-corner-top">${myCard.symbol}</div>
+      <span class="card-num">${myCard.value}</span>
+      <span class="card-suit">${myCard.symbol}</span>
+      <div class="card-corner-bottom">${myCard.symbol}</div>
+    `;
   } else {
     myForeheadCard.className = 'forehead-card secret';
-    myCardValue.textContent = '?';
+    myForeheadCard.innerHTML = `<span class="card-question">?</span>`;
   }
 }
 
@@ -487,7 +507,8 @@ function renderShowdownModal(gs) {
     const p = playersList[pid] || { name: '플레이어' };
     const card = gs.cards?.[pid];
     const isFold = gs.folded?.includes(pid);
-    return `<strong>${escapeHtml(p.name)}</strong>: ${isFold ? '(다이)' : `[${card ? card.value : '?'}]`}`;
+    const cardDisplay = card ? `<span style="color:${card.color === 'red' ? '#FF4757' : '#F0F0FF'}">[${card.symbol} ${card.value}]</span>` : '[?]';
+    return `<strong>${escapeHtml(p.name)}</strong>: ${isFold ? '<span style="color:#FF6B81;">(다이)</span>' : cardDisplay}`;
   }).join('<br/>');
 
   modalResultDesc.innerHTML = `${gs.log}<br/><br/>${summary}`;

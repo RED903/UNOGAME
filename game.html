@@ -208,7 +208,16 @@
   </script>
 
   <!-- Firebase + 게임 로직 (ES Module) -->
-  <script type="module" src="js/game.js"></script>
+  <script>
+    if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
+      document.write('<script src="js/bundles/game.bundle.js"><\/script>');
+    } else {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = 'js/game.js';
+      document.body.appendChild(s);
+    }
+  </script>
 
 </body>
 </html>

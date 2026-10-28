@@ -5,7 +5,7 @@
 import {
   database, ref, get, onValue, update, remove
 } from './firebase-config.js';
-import { createDeck, shuffleDeck, determineWinners } from './holdem-rules.js';
+import { createDeck, shuffleDeck, determineWinners, evaluateBestHand } from './holdem-rules.js';
 import { renderPokerCardSVG, renderCardBack } from './holdem-renderer.js';
 import {
   shouldStartHoldemRound, startHoldemRound, getStartingChips
@@ -1005,10 +1005,8 @@ function renderMyHandRank() {
     return;
   }
   try {
-    import('./holdem-rules.js').then(({ evaluateBestHand }) => {
-      const result = evaluateBestHand(myHoleCards, community);
-      if (result) el.textContent = `🃏 ${result.name}`;
-    });
+    const result = evaluateBestHand(myHoleCards, community);
+    if (result) el.textContent = `🃏 ${result.name}`;
   } catch (e) {}
 }
 

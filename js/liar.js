@@ -39,6 +39,14 @@ let isNavigatingToLobby = false; // 대기실 복귀 중 퇴장 오작동 방지
 // DOM 요소 캐싱
 const displayRoomCode = document.getElementById('display-room-code');
 const phaseBadge = document.getElementById('phase-badge');
+
+let isCodeHidden = false;
+function updateRoomCodeText() {
+  if (!displayRoomCode) return;
+  displayRoomCode.textContent = isCodeHidden ? 'ROOM: •••••• 👁️' : `ROOM: ${myRoomCode} 🔒`;
+  displayRoomCode.style.cursor = 'pointer';
+  displayRoomCode.title = '클릭하여 방 코드 숨기기/보기';
+}
 const phaseIcon = document.getElementById('phase-icon');
 const phaseText = document.getElementById('phase-text');
 const btnLeave = document.getElementById('btn-leave');
@@ -70,7 +78,11 @@ const btnModalRestart = document.getElementById('btn-modal-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  displayRoomCode.textContent = `ROOM: ${myRoomCode}`;
+  updateRoomCodeText();
+  displayRoomCode?.addEventListener('click', () => {
+    isCodeHidden = !isCodeHidden;
+    updateRoomCodeText();
+  });
   bindUiEvents();
 
   try {

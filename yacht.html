@@ -22,30 +22,75 @@
       <button class="btn-leave" id="btn-leave">🚪 나가기</button>
     </header>
 
-    <!-- ── 메인 게임 영역 ── -->
+    <!-- ── 메인 게임 영역 (좌측: 클래식 점수판, 우측: 주사위 롤존) ── -->
     <main class="yacht-main">
 
-      <!-- ── 1. 좌측: 주사위 롤존 ── -->
+      <!-- ── 1. 좌측: 사진 스타일 클래식 스코어보드 ── -->
+      <section class="scoreboard-zone">
+        <div class="classic-score-container">
+          <table class="classic-score-table" id="score-table">
+            <thead>
+              <!-- 1행: Turn 라운드 및 플레이어 헤더 -->
+              <tr class="header-turn-row">
+                <th class="th-turn">
+                  <div class="turn-label">Turn</div>
+                  <div class="turn-number" id="round-text">1/12</div>
+                </th>
+                <!-- 플레이어별 열 헤더(1P, 2P...)가 JS에서 동적으로 채워짐 -->
+              </tr>
+              <!-- 2행: Categories 섹션 제목 -->
+              <tr class="header-cat-row">
+                <th class="th-cat-title" id="cat-title-cell" colspan="3">Categories</th>
+              </tr>
+            </thead>
+            <tbody id="score-tbody">
+              <!-- JS에서 카테고리 행들이 렌더링됨 -->
+            </tbody>
+            <tfoot>
+              <!-- Total 최종 점수 행 -->
+              <tr class="total-row" id="score-tfoot-row">
+                <td class="td-total-label">Total</td>
+                <!-- 플레이어별 최종 합계 점수 셀들이 JS에서 동적으로 채워짐 -->
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── 2. 우측: 주사위 트레이 및 조작부 ── -->
       <section class="dice-zone">
-        <div class="round-info-bar">
-          <div class="round-text" id="round-text">라운드 1 / 12</div>
-          <div class="rolls-left-badge" id="rolls-left-badge">남은 굴림: 3회</div>
+        <!-- 상단 고정(HOLD) 보관 슬롯 -->
+        <div class="hold-slots-bar" id="hold-slots-bar">
+          <div class="hold-slots-title">🔒 고정된 주사위 (HOLD SLOTS)</div>
+          <div class="hold-slots-container" id="hold-slots-container">
+            <div class="hold-slot-box" data-idx="0"></div>
+            <div class="hold-slot-box" data-idx="1"></div>
+            <div class="hold-slot-box" data-idx="2"></div>
+            <div class="hold-slot-box" data-idx="3"></div>
+            <div class="hold-slot-box" data-idx="4"></div>
+          </div>
         </div>
 
-        <!-- 주사위 5개 트레이 -->
-        <div class="dice-tray" id="dice-tray">
-          <!-- 5개 주사위 요소가 JS에서 생성됨 -->
+        <!-- 고급 사각 벨벳 주사위 트레이 -->
+        <div class="velvet-dice-tray" id="velvet-tray">
+          <div class="tray-inner-rim">
+            <div class="tray-felt-surface" id="dice-tray">
+              <!-- 주사위 5개가 JS에서 동적으로 생성됨 -->
+            </div>
+          </div>
         </div>
 
-        <!-- 주사위 조작 버튼 -->
-        <div class="dice-controls">
-          <button class="btn-roll" id="btn-roll">
-            <span>🎲</span>
+        <!-- 주사위 조작부 -->
+        <div class="dice-controls-card">
+          <div class="rolls-info-row">
+            <span class="rolls-left-badge" id="rolls-left-badge">남은 굴림: 3회</span>
+            <span class="roll-hint" id="roll-hint">주사위를 굴려 턴을 시작하세요!</span>
+          </div>
+
+          <button class="btn-roll-main" id="btn-roll">
+            <span class="btn-roll-icon">🎲</span>
             <span id="btn-roll-text">주사위 굴리기 (3/3)</span>
           </button>
-          <div class="roll-hint" id="roll-hint">
-            주사위를 클릭하여 원하는 눈을 고정(HOLD)하세요
-          </div>
         </div>
 
         <!-- 감정표현 바 -->
@@ -57,29 +102,6 @@
           <button class="btn-emote" data-emote="🤔">🤔</button>
           <button class="btn-emote" data-emote="🔥">🔥</button>
           <button class="btn-emote" data-emote="🎲">🎲</button>
-        </div>
-      </section>
-
-      <!-- ── 2. 우측: 스코어보드 시트 ── -->
-      <section class="scoreboard-zone">
-        <!-- 플레이어 전환 탭 -->
-        <div class="score-tabs" id="score-tabs">
-          <!-- 각 플레이어의 탭이 동적으로 생성됨 -->
-        </div>
-
-        <!-- 스코어보드 테이블 -->
-        <div class="score-table-wrap">
-          <table class="score-table" id="score-table">
-            <thead>
-              <tr>
-                <th>카테고리</th>
-                <th style="text-align:right;">점수</th>
-              </tr>
-            </thead>
-            <tbody id="score-tbody">
-              <!-- JS에서 카테고리 행 렌더링 -->
-            </tbody>
-          </table>
         </div>
       </section>
 
@@ -96,10 +118,10 @@
         <!-- 순위 목록 -->
       </div>
       <div style="display:flex; gap:10px; margin-top:20px;">
-        <button class="btn-roll" id="btn-modal-lobby" style="flex:1; background:rgba(255,255,255,0.1); box-shadow:none;">
+        <button class="btn-roll-main" id="btn-modal-lobby" style="flex:1; background:rgba(255,255,255,0.1); box-shadow:none;">
           🏠 대기실로
         </button>
-        <button class="btn-roll" id="btn-modal-restart" style="flex:1;">
+        <button class="btn-roll-main" id="btn-modal-restart" style="flex:1;">
           🔄 다시 하기
         </button>
       </div>
@@ -107,9 +129,18 @@
   </div>
 
   <div id="toast"></div>
+  <div id="emote-popup-container"></div>
 
-  <!-- Firebase 및 게임 로직 연결 -->
-  <script type="module" src="js/yacht.js"></script>
+  <!-- 게임 스크립트 연결 (file:/// 로컬 및 웹 듀얼 지원) -->
+  <script>
+    if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
+      document.write('<script src="js/bundles/yacht.bundle.js"><\/script>');
+    } else {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = 'js/yacht.js';
+      document.body.appendChild(s);
+    }
+  </script>
 </body>
 </html>
-

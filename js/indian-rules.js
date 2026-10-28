@@ -6,21 +6,34 @@
 export const INITIAL_CHIPS = 30; // 1인당 기본 시작 칩
 export const ANTE_CHIPS = 1;     // 라운드 기본 베팅(안티)
 
+// 4개 카드 수트 정의
+export const SUITS = [
+  { name: 'spade', symbol: '♠', color: 'black', priority: 4 },
+  { name: 'diamond', symbol: '♦', color: 'red', priority: 3 },
+  { name: 'heart', symbol: '♥', color: 'red', priority: 2 },
+  { name: 'club', symbol: '♣', color: 'black', priority: 1 }
+];
+
 /**
- * 1~10 숫자 카드 덱 생성 (총 20장, 각 2장씩)
+ * 4가지 무늬(♠, ♦, ♥, ♣) × 1~10 숫자 카드 덱 생성 (총 40장, 완전 고유 카드)
  */
 export function createIndianDeck() {
   const deck = [];
-  for (let copy = 0; copy < 2; copy++) {
+
+  SUITS.forEach(suit => {
     for (let num = 1; num <= 10; num++) {
       deck.push({
-        id: `c_${num}_${copy}_${Math.random().toString(36).substr(2, 4)}`,
-        value: num
+        id: `c_${suit.name}_${num}`,
+        value: num,
+        suit: suit.name,
+        symbol: suit.symbol,
+        color: suit.color,
+        priority: suit.priority
       });
     }
-  }
+  });
 
-  // 셔플
+  // Fisher-Yates 정밀 셔플
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -32,7 +45,7 @@ export function createIndianDeck() {
 /**
  * 봇 AI 베팅 결정 알고리즘
  * 봇은 "자신의 카드는 모르고, 상대방의 카드와 현재 베팅 금액"만을 보고 결정합니다.
- * @param {Object} oppCard - 상대방의 카드 { value: 7 }
+ * @param {Object} oppCard - 상대방의 카드 { value: 7, suit: 'heart' }
  * @param {number} currentCallAmount - 콜하기 위해 필요한 추가 칩
  * @param {number} botChips - 봇의 남은 칩
  * @param {number} potSize - 현재 팟에 쌓인 칩 총합
@@ -69,7 +82,6 @@ export function botDecideIndianBet(oppCard, currentCallAmount, botChips, potSize
   // 3. 상대방 카드가 7~8 (다소 높은 수): 방어적 태세 (단, 가끔 블러핑)
   if (oppVal <= 8) {
     if (currentCallAmount === 0) return { action: 'check' };
-    // 20% 확률로 역발상 블러핑 콜, 아니면 폴드
     if (currentCallAmount <= 2 && Math.random() < 0.4) {
       return { action: 'call' };
     }
@@ -78,10 +90,8 @@ export function botDecideIndianBet(oppCard, currentCallAmount, botChips, potSize
 
   // 4. 상대방 카드가 9~10 (초강력 패): 내가 질 확률이 매우 높음
   if (currentCallAmount === 0) return { action: 'check' };
-  // 10%의 확률로 대담한 블러핑 콜을 제외하고는 폴드
   if (Math.random() < 0.15 && currentCallAmount <= 2) {
     return { action: 'call' };
   }
   return { action: 'fold' };
 }
-

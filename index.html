@@ -4,8 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="darkreader-lock" content="true"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>온라인 보드게임 라운지 (UNO, 야추, 라이어, 다빈치, 인디언, 루미큐브, 홀덤, 할리갈리)</title>
-  <meta name="description" content="친구들과 함께 즐기는 실시간 보드게임 & 카드게임! 야추 다이스, 라이어 게임, 다빈치 코드, 인디언 포커, 루미큐브, UNO, 홀덤, 할리갈리를 한곳에서 즐기세요."/>
+  <title>온라인 보드게임 라운지 (UNO, 야추, 라이어, 다빈치, 인디언, 홀덤, 할리갈리)</title>
+  <meta name="description" content="친구들과 함께 즐기는 실시간 보드게임 & 카드게임! 야추 다이스, 라이어 게임, 다빈치 코드, 인디언 포커, UNO, 홀덤, 할리갈리를 한곳에서 즐기세요."/>
   <link rel="stylesheet" href="css/main.css"/>
   <style>
     /* ─── 로비 전용 스타일 ─── */
@@ -451,14 +451,13 @@
     <div class="screen" id="screen-main" style="display:flex;">
       <div class="main-hero">
         <h1 class="main-title">BOARD ARENA</h1>
-        <p class="main-subtitle">친구들과 실시간으로 즐기는 8가지 보드게임 & 카드게임 라운지</p>
+        <p class="main-subtitle">친구들과 실시간으로 즐기는 7가지 보드게임 & 카드게임 라운지</p>
         
         <div class="games-carousel-pill">
           <span class="game-pill-item">🎲 야추 다이스</span>
           <span class="game-pill-item">🤫 라이어 게임</span>
           <span class="game-pill-item">🔢 다빈치 코드</span>
           <span class="game-pill-item">🤠 인디언 포커</span>
-          <span class="game-pill-item">🧩 루미큐브</span>
           <span class="game-pill-item">🃏 UNO</span>
           <span class="game-pill-item">🎰 텍사스 홀덤</span>
           <span class="game-pill-item">🔔 할리갈리</span>
@@ -475,7 +474,7 @@
       </div>
 
       <div style="display:flex; gap:24px; font-size:0.8rem; color:rgba(240,240,255,0.45); text-align:center;">
-        <div>🎮 8종 보드게임<br/>통합 지원</div>
+        <div>🎮 7종 보드게임<br/>통합 지원</div>
         <div>👥 1~10인<br/>멀티 & 스마트 봇</div>
         <div>⚡ 실시간 동기화<br/>모바일 완벽 지원</div>
       </div>
@@ -515,7 +514,6 @@
             <option value="liar">🤫 라이어 게임 (Liar Game)</option>
             <option value="davinci">🔢 다빈치 코드 (Da Vinci Code)</option>
             <option value="indian">🤠 인디언 포커 (Indian Poker)</option>
-            <option value="rummikub">🧩 루미큐브 (Rummikub)</option>
             <option value="uno">🃏 UNO 카드 게임</option>
             <option value="holdem">🎰 텍사스 홀덤 포커</option>
             <option value="halligalli">🔔 할리갈리 (Halli Galli)</option>
@@ -598,8 +596,14 @@
 
       <div class="glass-card room-code-display" style="border-radius:20px; width:100%;">
         <div class="room-code-label">방 코드 (친구에게 공유하세요)</div>
-        <div class="room-code-value" id="display-room-code" title="클릭하여 복사">
-          ------
+        <div style="display:flex; align-items:center; justify-content:center; gap:12px; width:100%;">
+          <div class="room-code-value" id="display-room-code" title="클릭하여 복사">
+            ------
+          </div>
+          <button type="button" id="btn-toggle-code" title="방 코드 숨기기/보기" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); border-radius:10px; padding:6px 10px; color:#F0F0FF; cursor:pointer; font-size:0.8rem; display:flex; align-items:center; gap:5px; transition:all 0.2s;">
+            <span id="toggle-code-icon">👁️</span>
+            <span id="toggle-code-text" style="font-size:0.75rem; font-weight:700;">숨기기</span>
+          </button>
         </div>
         <div class="room-code-copy">클릭하면 복사됩니다</div>
         <!-- 게임 종류 배지 -->
@@ -614,7 +618,6 @@
               <option value="liar">🤫 라이어 게임 (Liar Game)</option>
               <option value="davinci">🔢 다빈치 코드 (Da Vinci Code)</option>
               <option value="indian">🤠 인디언 포커 (Indian Poker)</option>
-              <option value="rummikub">🧩 루미큐브 (Rummikub)</option>
               <option value="uno">🃏 UNO 카드 게임</option>
               <option value="holdem">🎰 텍사스 홀덤 포커</option>
               <option value="halligalli">🔔 할리갈리 (Halli Galli)</option>
@@ -675,14 +678,44 @@
   <script>
     // 즉시실행함수로 전역 네임스페이스 격리
     (() => {
-      // 방 코드 복사
-      window.copyRoomCode = function() {
+      let isCodeHidden = false;
+      let rawRoomCode = '------';
+
+      // 전역 방 코드 업데이트 훅
+      window.updateRoomCodeDisplay = function(code) {
+        rawRoomCode = code || '------';
+        renderRoomCodeDisplay();
+      };
+
+      function renderRoomCodeDisplay() {
         const codeEl = document.getElementById('display-room-code');
+        const iconEl = document.getElementById('toggle-code-icon');
+        const textEl = document.getElementById('toggle-code-text');
         if (!codeEl) return;
-        const code = codeEl.textContent.trim();
-        if (code === '------') return;
-        navigator.clipboard.writeText(code).then(() => {
-          window.showToast('방 코드가 복사되었습니다: ' + code);
+
+        if (isCodeHidden && rawRoomCode !== '------') {
+          codeEl.textContent = '••••••';
+          if (iconEl) iconEl.textContent = '🔒';
+          if (textEl) textEl.textContent = '보기';
+        } else {
+          codeEl.textContent = rawRoomCode;
+          if (iconEl) iconEl.textContent = '👁️';
+          if (textEl) textEl.textContent = '숨기기';
+        }
+      }
+
+      // 방 코드 숨기기/보기 토글
+      document.getElementById('btn-toggle-code')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isCodeHidden = !isCodeHidden;
+        renderRoomCodeDisplay();
+      });
+
+      // 방 코드 복사 (마스킹 상태여도 실제 코드가 복사됨)
+      window.copyRoomCode = function() {
+        if (rawRoomCode === '------') return;
+        navigator.clipboard.writeText(rawRoomCode).then(() => {
+          window.showToast('방 코드가 복사되었습니다: ' + rawRoomCode);
         });
       };
 

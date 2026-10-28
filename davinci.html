@@ -138,8 +138,17 @@
 
   <div id="toast"></div>
 
-  <!-- Firebase 및 게임 스크립트 연결 -->
-  <script type="module" src="js/davinci.js"></script>
+  <!-- 게임 스크립트 연결 (file:/// 로컬 및 웹 듀얼 지원) -->
+  <script>
+    if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
+      document.write('<script src="js/bundles/davinci.bundle.js"><\/script>');
+    } else {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = 'js/davinci.js';
+      document.body.appendChild(s);
+    }
+  </script>
 </body>
 </html>
 

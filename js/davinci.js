@@ -44,6 +44,14 @@ const turnAvatar = document.getElementById('turn-avatar');
 const turnText = document.getElementById('turn-text');
 const btnLeave = document.getElementById('btn-leave');
 
+let isCodeHidden = false;
+function updateRoomCodeText() {
+  if (!displayRoomCode) return;
+  displayRoomCode.textContent = isCodeHidden ? 'ROOM: •••••• 👁️' : `ROOM: ${myRoomCode} 🔒`;
+  displayRoomCode.style.cursor = 'pointer';
+  displayRoomCode.title = '클릭하여 방 코드 숨기기/보기';
+}
+
 const opponentsZone = document.getElementById('opponents-zone');
 const poolTitle = document.getElementById('pool-title');
 const btnDrawBlack = document.getElementById('btn-draw-black');
@@ -74,7 +82,11 @@ const btnModalRestart = document.getElementById('btn-modal-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  displayRoomCode.textContent = `ROOM: ${myRoomCode}`;
+  updateRoomCodeText();
+  displayRoomCode?.addEventListener('click', () => {
+    isCodeHidden = !isCodeHidden;
+    updateRoomCodeText();
+  });
   bindUiEvents();
 
   try {

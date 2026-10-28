@@ -1,35 +1,25 @@
 // ═══════════════════════════════════════════════════
-// Firebase 설정 파일
-//
-// ⚠️ 이 파일의 firebaseConfig를 본인의 Firebase 설정으로 교체해야 합니다!
-//
-// 방법:
-// 1. https://console.firebase.google.com 에서 프로젝트 생성
-// 2. Realtime Database 활성화 (테스트 모드)
-// 3. 프로젝트 설정 > 일반 > 앱 추가(웹) > SDK 구성 복사
-// 4. 아래 firebaseConfig 값을 복사한 값으로 교체
-// 5. databaseURL이 반드시 있어야 합니다!
-//
-// 자세한 방법: README.md 참고
+// Firebase 설정 & 로컬 스마트 분기 모듈
 // ═══════════════════════════════════════════════════
 
+import * as localDb from './local-db.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getDatabase,
-  ref,
-  set,
-  get,
-  push,
-  onValue,
-  update,
-  remove,
-  off,
-  serverTimestamp,
-  runTransaction
+  ref as fbRef,
+  set as fbSet,
+  get as fbGet,
+  push as fbPush,
+  onValue as fbOnValue,
+  update as fbUpdate,
+  remove as fbRemove,
+  off as fbOff,
+  serverTimestamp as fbServerTimestamp,
+  runTransaction as fbRunTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // ══════════════════════════════════════════════════
-// 🔧 여기를 본인의 Firebase 설정으로 교체하세요!
+// 🔧 Firebase 원격 설정
 // ══════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyBZYI7EJZBac29eFaJQLKpDJJp-YwVZr6o",
@@ -42,72 +32,118 @@ const firebaseConfig = {
 };
 // ══════════════════════════════════════════════════
 
-// 설정이 아직 기본값인지 확인
-function isDefaultConfig() {
-  return firebaseConfig.apiKey === "YOUR_API_KEY" ||
-         firebaseConfig.databaseURL.includes("YOUR_PROJECT_ID");
+// 로컬 테스트 모드 여부 감지 함수
+export function isLocalMode() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('local') === 'true' || urlParams.get('local') === '1' || urlParams.get('mode') === 'local') {
+      return true;
+    }
+    if (window.location.pathname.includes('-local') || window.location.pathname.includes('index-local.html')) {
+      return true;
+    }
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('uno_local_mode') === 'true') {
+      return true;
+    }
+  } catch (e) {
+    // URLSearchParams 파싱 오류 등 예외 방어
+  }
+  return false;
 }
 
 // Firebase 초기화
-let app, database;
+let fbApp = null;
+let fbDatabase = null;
 
 try {
-  if (isDefaultConfig()) {
-    // 기본 설정 경고 (개발 환경에서 안내)
-    console.warn(
-      '%c⚠️ Firebase 설정이 필요합니다!',
-      'color: orange; font-size: 16px; font-weight: bold;'
-    );
-    console.warn(
-      'js/firebase-config.js 파일을 열어서 firebaseConfig를 본인의 Firebase 설정으로 교체하세요.\n' +
-      '자세한 방법은 README.md를 참고하세요.'
-    );
-
-    // 페이지에 경고 표시
-    if (typeof document !== 'undefined') {
-      setTimeout(() => {
-        const warning = document.createElement('div');
-        warning.style.cssText = `
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          background: linear-gradient(135deg, #FF6B00, #FF1744);
-          color: white;
-          padding: 12px 20px;
-          text-align: center;
-          font-family: 'Outfit', sans-serif;
-          font-weight: 700;
-          font-size: 0.9rem;
-          z-index: 99999;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        `;
-        warning.innerHTML = `
-          ⚠️ Firebase 설정이 필요합니다!
-          <a href="README.md" target="_blank"
-            style="color:white; text-decoration:underline; margin-left:8px;">
-            설정 가이드 보기 (README.md)
-          </a>
-        `;
-        document.body.prepend(warning);
-      }, 500);
-    }
-  }
-
-  app = initializeApp(firebaseConfig);
-  database = getDatabase(app);
+  fbApp = initializeApp(firebaseConfig);
+  fbDatabase = getDatabase(fbApp);
 } catch (err) {
-  console.error('Firebase 초기화 실패:', err);
+  console.warn('[Firebase] 초기화 경고 (로컬 모드에서는 무시 가능):', err);
 }
 
-export {
-  database,
-  ref,
-  set,
-  get,
-  push,
-  onValue,
-  update,
-  remove,
-  off,
-  serverTimestamp,
-  runTransaction
-};
+// 활성 데이터베이스 인스턴스 반환
+export function getActiveDatabase() {
+  return isLocalMode() ? localDb.database : fbDatabase;
+}
+
+// 투명한 DB 프록시
+export const database = new Proxy({}, {
+  get(target, prop) {
+    const active = getActiveDatabase();
+    return active ? active[prop] : undefined;
+  }
+});
+
+// ─── 래퍼 API 함수들 ───────────────────────────────
+
+export function ref(db, path = '') {
+  if (isLocalMode()) {
+    return localDb.ref(db || localDb.database, path);
+  }
+  return fbRef(db || fbDatabase, path);
+}
+
+export function get(targetRef) {
+  if (isLocalMode()) {
+    return localDb.get(targetRef);
+  }
+  return fbGet(targetRef);
+}
+
+export function set(targetRef, val) {
+  if (isLocalMode()) {
+    return localDb.set(targetRef, val);
+  }
+  return fbSet(targetRef, val);
+}
+
+export function update(targetRef, val) {
+  if (isLocalMode()) {
+    return localDb.update(targetRef, val);
+  }
+  return fbUpdate(targetRef, val);
+}
+
+export function remove(targetRef) {
+  if (isLocalMode()) {
+    return localDb.remove(targetRef);
+  }
+  return fbRemove(targetRef);
+}
+
+export function push(targetRef, val) {
+  if (isLocalMode()) {
+    return localDb.push(targetRef, val);
+  }
+  return fbPush(targetRef, val);
+}
+
+export function onValue(targetRef, cb) {
+  if (isLocalMode()) {
+    return localDb.onValue(targetRef, cb);
+  }
+  return fbOnValue(targetRef, cb);
+}
+
+export function off(targetRef, cb) {
+  if (isLocalMode()) {
+    return localDb.off(targetRef, cb);
+  }
+  return fbOff(targetRef, cb);
+}
+
+export function serverTimestamp() {
+  if (isLocalMode()) {
+    return localDb.serverTimestamp();
+  }
+  return fbServerTimestamp();
+}
+
+export function runTransaction(targetRef, updateFn) {
+  if (isLocalMode()) {
+    return localDb.runTransaction(targetRef, updateFn);
+  }
+  return fbRunTransaction(targetRef, updateFn);
+}

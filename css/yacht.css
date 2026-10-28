@@ -1,16 +1,20 @@
 /* ═══════════════════════════════════════════════════
    야추 다이스 (Yacht Dice) 스타일시트
-   글래스모피즘 & 3D 주사위 & 반응형 스코어보드
+   클래식 보드게임 점수판 (사진 스타일 100% 반영) & 우드 벨벳 3D 주사위 트레이
    ═══════════════════════════════════════════════════ */
 
 :root {
-  --yacht-bg: #0D0F1D;
-  --panel-bg: rgba(26, 29, 58, 0.7);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --gold: #FFD700;
-  --accent-red: #FF4757;
-  --accent-blue: #1E90FF;
-  --accent-green: #2ED573;
+  --wood-bg-1: #4A2E1B;
+  --wood-bg-2: #2E1A0E;
+  --velvet-red-1: #9E1F2F;
+  --velvet-red-2: #630F19;
+  --board-bg: #FAF8F2;
+  --board-border: #2A2825;
+  --board-line: #7A766F;
+  --turn-gold: #FFF9D2;
+  --turn-gold-dark: #F3EAA8;
+  --dice-white: #FFFFFF;
+  --dice-dot: #1A1A1A;
 }
 
 * {
@@ -22,11 +26,7 @@
 }
 
 body {
-  background-color: var(--yacht-bg);
-  background-image: 
-    radial-gradient(circle at 15% 20%, rgba(30, 144, 255, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(255, 71, 87, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 60%);
+  background: radial-gradient(circle at 60% 40%, var(--wood-bg-1) 0%, var(--wood-bg-2) 100%);
   color: #F0F0FF;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
@@ -37,10 +37,10 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 16px;
-  gap: 16px;
+  padding: 14px 16px;
+  gap: 12px;
 }
 
 /* ─── 상단 헤더 ─── */
@@ -48,125 +48,431 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  padding: 12px 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  background: rgba(20, 15, 10, 0.7);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .room-badge {
   font-size: 0.85rem;
   font-weight: 800;
   letter-spacing: 1px;
-  color: var(--gold);
-  background: rgba(255, 215, 0, 0.1);
-  padding: 6px 12px;
-  border-radius: 8px;
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.12);
+  padding: 5px 12px;
+  border-radius: 6px;
   border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
 .turn-indicator {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #FFF;
 }
 
 .btn-leave {
-  background: rgba(255, 71, 87, 0.15);
+  background: rgba(255, 71, 87, 0.18);
   border: 1px solid rgba(255, 71, 87, 0.4);
-  color: #FF6B81;
+  color: #FF7B8E;
   font-size: 0.85rem;
   font-weight: 700;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 6px 14px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 .btn-leave:hover {
-  background: rgba(255, 71, 87, 0.3);
+  background: rgba(255, 71, 87, 0.35);
   color: #fff;
-  transform: translateY(-1px);
 }
 
-/* ─── 메인 게임 컨테이너 (2열 레이아웃: 주사위 보드 + 스코어보드) ─── */
+/* ─── 메인 2열 그리드 레이아웃 (좌: 클래식 점수판, 우: 주사위 트레이) ─── */
 .yacht-main {
   display: grid;
-  grid-template-columns: 1fr 1.15fr;
+  grid-template-columns: minmax(320px, max-content) 1fr;
   gap: 20px;
   flex: 1;
+  align-items: start;
 }
 
-/* ─── 좌측: 주사위 롤링 플레이존 ─── */
-.dice-zone {
+@media (max-width: 980px) {
+  .yacht-main {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   좌측: 사진 스타일 100% 재현 클래식 스코어보드
+   ═══════════════════════════════════════════════════ */
+.scoreboard-zone {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  max-width: 100%;
+}
+
+.classic-score-container {
+  background: var(--board-bg);
+  border: 3px solid var(--board-border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 15px rgba(0,0,0,0.05);
+  border-radius: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, 'Outfit', sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.3) transparent;
+}
+
+.classic-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+/* 셀 공통 테두리 */
+.classic-score-table th,
+.classic-score-table td {
+  border: 1px solid var(--board-line);
+  padding: 4px 6px;
+  font-size: 0.88rem;
+}
+
+/* 1. 상단 Turn 헤더 행 */
+.header-turn-row {
+  background: #F4EFE6;
+}
+
+.th-turn {
+  width: 135px;
+  padding: 6px 8px !important;
+  text-align: center !important;
+  border-bottom: 2px solid var(--board-border) !important;
+}
+
+.turn-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.turn-number {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #1A1A1A;
+  line-height: 1.1;
+}
+
+/* 플레이어 열 헤더 */
+.th-player {
+  text-align: center !important;
+  padding: 6px 4px !important;
+  vertical-align: middle;
+  min-width: 60px;
+  border-bottom: 2px solid var(--board-border) !important;
   position: relative;
 }
 
-.round-info-bar {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
+.th-player.is-turn {
+  background: var(--turn-gold);
+}
+
+.player-avatar-badge {
+  display: inline-flex;
   align-items: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  background: #9B51E0;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  margin-bottom: 2px;
 }
 
-.round-text {
+.player-avatar-badge.p2 {
+  background: #A82431;
+  font-weight: 900;
   font-size: 0.95rem;
-  font-weight: 700;
-  color: rgba(240,240,255,0.8);
 }
 
-.rolls-left-badge {
-  background: rgba(30, 144, 255, 0.2);
-  border: 1px solid rgba(30, 144, 255, 0.4);
-  color: #70A1FF;
-  padding: 4px 10px;
-  border-radius: 8px;
+.player-avatar-badge.p3 {
+  background: #0077B6;
+}
+
+.player-avatar-badge.p4 {
+  background: #2D6A4F;
+}
+
+.player-col-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70px;
+  margin: 0 auto;
+}
+
+/* 2. Categories 섹션 헤더 */
+.header-cat-row {
+  background: #252422;
+}
+
+.th-cat-title {
+  color: #FAF8F2;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 5px 8px !important;
+  text-align: left;
+}
+
+/* 3. 카테고리 본문 행 */
+.cat-row {
+  height: 30px;
+  transition: background 0.15s;
+}
+
+.cat-row.row-can-select:hover .td-cat-name {
+  background: rgba(255, 235, 130, 0.4);
+  color: #000;
+  cursor: pointer;
+}
+
+.td-cat-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.85rem;
   font-weight: 700;
+  color: #222;
+  white-space: nowrap;
+  padding: 4px 6px;
 }
 
-/* 주사위 테이블 트레이 */
-.dice-tray {
-  width: 100%;
-  min-height: 220px;
-  background: radial-gradient(circle at center, rgba(16, 85, 45, 0.7) 0%, rgba(10, 40, 25, 0.9) 100%);
-  border: 4px solid #4a3728;
-  border-radius: 20px;
-  box-shadow: inset 0 8px 30px rgba(0,0,0,0.7), 0 10px 25px rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
+.cat-dice-symbol {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  width: 18px;
+  color: #111;
+}
+
+/* 플레이어 점수 셀 */
+.td-player-score {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111;
+  position: relative;
+  min-width: 60px;
+}
+
+/* 활성 턴인 플레이어 열의 전체 셀 */
+.td-player-score.turn-col {
+  background: var(--turn-gold);
+}
+
+/* 점수 확정 입력된 상태 */
+.td-player-score.filled {
+  color: #111;
+}
+
+/* 0점 스크래치 */
+.td-player-score.filled.zero-score {
+  color: #D4AF37; /* 사진처럼 부드러운 골드/머스터드 0점 */
+  font-weight: 800;
+}
+
+/* [★ 핵심] 내 턴에 점수 선택 가능한 셀 */
+.td-player-score.selectable {
+  cursor: pointer;
+  background: rgba(255, 235, 130, 0.6) !important;
+  outline: 2px dashed rgba(255, 180, 0, 0.7);
+  outline-offset: -2px;
+  transition: all 0.15s ease;
+}
+
+.td-player-score.selectable:hover {
+  background: #FFE566 !important;
+  transform: scale(1.04);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.15);
+}
+
+/* 예상 점수(미리보기) */
+.td-player-score.preview-score {
+  color: rgba(30, 30, 30, 0.65);
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* 4. Subtotal & Bonus 행 */
+.subtotal-row {
+  background: #EFE9DE;
+  font-weight: 700;
+}
+
+.td-subtotal-val {
+  font-size: 0.85rem !important;
+  color: #666;
+  text-align: center;
+}
+.td-subtotal-val.turn-col {
+  background: var(--turn-gold-dark);
+}
+
+.bonus-row {
+  background: #EFE9DE;
+  font-weight: 700;
+}
+.td-bonus-val {
+  text-align: center;
+  font-weight: 900;
+  color: #2ED573;
+}
+.td-bonus-val.turn-col {
+  background: var(--turn-gold-dark);
+}
+
+.bonus-desc-row {
+  background: #F8F5EE;
+}
+.td-bonus-desc {
+  font-size: 0.68rem !important;
+  color: #666;
+  padding: 3px 6px !important;
+  text-align: left;
+}
+
+/* 5. Total 최종 합계 행 */
+.total-row {
+  background: #FAF8F2;
+  border-top: 2px solid var(--board-border) !important;
+  height: 38px;
+}
+
+.td-total-label {
+  font-size: 1.15rem !important;
+  font-weight: 900 !important;
+  color: #111;
+  padding: 6px 8px !important;
+}
+
+.td-total-val {
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  text-align: center;
+  color: #111;
+}
+.td-total-val.turn-col {
+  background: var(--turn-gold);
+}
+
+/* ═══════════════════════════════════════════════════
+   우측: 사진 스타일 벨벳 주사위 트레이 & 조작부
+   ═══════════════════════════════════════════════════ */
+.dice-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 상단 HOLD 슬롯 바 (사진 트레이 상단의 사각 슬롯 느낌) */
+.hold-slots-bar {
+  background: rgba(15, 10, 5, 0.65);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.hold-slots-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgba(255, 215, 0, 0.75);
+  letter-spacing: 1px;
+}
+
+.hold-slots-container {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.hold-slot-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.hold-slot-box.has-dice {
+  border-style: solid;
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.15);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+/* 사각 레드 벨벳 트레이 */
+.velvet-dice-tray {
+  background: linear-gradient(135deg, #4A4A4A 0%, #2A2A2A 50%, #1A1A1A 100%);
+  border-radius: 36px;
+  padding: 14px;
+  box-shadow: 
+    0 16px 40px rgba(0,0,0,0.7),
+    inset 0 3px 6px rgba(255,255,255,0.3),
+    inset 0 -4px 8px rgba(0,0,0,0.6);
+  border: 2px solid rgba(255,255,255,0.15);
+}
+
+.tray-inner-rim {
+  background: #181210;
+  border-radius: 26px;
+  padding: 12px;
+  box-shadow: inset 0 6px 14px rgba(0,0,0,0.8);
+}
+
+.tray-felt-surface {
+  background: radial-gradient(circle at 50% 50%, var(--velvet-red-1) 0%, var(--velvet-red-2) 100%);
+  border-radius: 18px;
+  min-height: 220px;
+  display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  box-shadow: inset 0 8px 24px rgba(0,0,0,0.6);
   position: relative;
   overflow: hidden;
 }
 
-/* 3D 주사위 큐브 */
+/* ─── 3D 주사위 큐브 스타일 ─── */
 .dice-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
   perspective: 600px;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dice-wrapper:hover {
@@ -174,382 +480,296 @@ body {
 }
 
 .dice-wrapper.held {
-  transform: translateY(-8px);
+  filter: drop-shadow(0 0 12px #FFD700);
 }
 
 .dice-cube {
-  width: 68px;
-  height: 68px;
-  background: linear-gradient(145deg, #ffffff, #e6e6e6);
-  border-radius: 14px;
+  width: 58px;
+  height: 58px;
+  background: var(--dice-white);
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.15);
   box-shadow: 
-    0 10px 20px rgba(0,0,0,0.4),
+    0 8px 16px rgba(0,0,0,0.4),
     inset 0 2px 4px rgba(255,255,255,0.9),
-    inset 0 -2px 4px rgba(0,0,0,0.2);
+    inset 0 -3px 6px rgba(0,0,0,0.15);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
   padding: 8px;
   position: relative;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .dice-wrapper.held .dice-cube {
-  box-shadow: 
-    0 0 16px rgba(255, 215, 0, 0.8),
-    0 8px 24px rgba(255, 215, 0, 0.4),
-    inset 0 0 8px rgba(255, 215, 0, 0.6);
-  border: 2px solid var(--gold);
+  border: 2.5px solid #FFD700;
+  background: #FFFFF8;
 }
 
-/* 주사위 눈알 (Pip) */
-.pip {
-  width: 12px;
-  height: 12px;
-  background: #222;
+/* 주사위 점 도트 */
+.dot {
+  width: 10px;
+  height: 10px;
+  background: var(--dice-dot);
   border-radius: 50%;
   align-self: center;
   justify-self: center;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
 }
 
-.pip.red {
-  background: #FF4757;
-}
+/* 주사위 눈 배치 그리드 */
+.dice-val-1 { display: flex; align-items: center; justify-content: center; }
+.dice-val-1 .dot { width: 14px; height: 14px; background: #E8003D; } /* 1은 시그니처 레드 */
 
-/* 홀드 배지 라벨 */
-.hold-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #fff;
-  background: rgba(255, 215, 0, 0.2);
-  border: 1px solid rgba(255, 215, 0, 0.4);
-  padding: 3px 8px;
-  border-radius: 6px;
-  opacity: 0;
-  transform: translateY(-3px);
-  transition: all 0.2s;
-}
+.dice-val-2 { grid-template: 1fr 1fr / 1fr 1fr; }
+.dice-val-2 .dot:nth-child(2) { grid-area: 2 / 2; }
 
-.dice-wrapper.held .hold-label {
-  opacity: 1;
-  transform: translateY(0);
-  background: var(--gold);
-  color: #111;
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
-}
+.dice-val-3 { grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; }
+.dice-val-3 .dot:nth-child(2) { grid-area: 2 / 2; }
+.dice-val-3 .dot:nth-child(3) { grid-area: 3 / 3; }
 
-/* 주사위 회전 롤링 애니메이션 */
-@keyframes rollAnimation {
-  0% { transform: rotate(0deg) scale(0.9); }
-  25% { transform: rotate(90deg) translateY(-15px) scale(1.1); }
-  50% { transform: rotate(180deg) scale(0.95); }
-  75% { transform: rotate(270deg) translateY(-10px) scale(1.05); }
+.dice-val-4 { grid-template: 1fr 1fr / 1fr 1fr; }
+.dice-val-5 { grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; }
+.dice-val-5 .dot:nth-child(3) { grid-area: 2 / 2; }
+.dice-val-5 .dot:nth-child(4) { grid-area: 3 / 1; }
+.dice-val-5 .dot:nth-child(5) { grid-area: 3 / 3; }
+
+.dice-val-6 { grid-template: 1fr 1fr 1fr / 1fr 1fr; }
+
+/* 굴림 애니메이션 */
+@keyframes diceRollAnim {
+  0%   { transform: rotate(0deg) scale(0.9); }
+  25%  { transform: rotate(90deg) scale(1.15) translateY(-10px); }
+  50%  { transform: rotate(180deg) scale(0.95); }
+  75%  { transform: rotate(270deg) scale(1.1) translateY(-6px); }
   100% { transform: rotate(360deg) scale(1); }
 }
 
-.rolling {
-  animation: rollAnimation 0.5s ease-out;
+.dice-cube.rolling {
+  animation: diceRollAnim 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 주사위 조작부 */
-.dice-controls {
-  width: 100%;
+/* 고정(HOLD) 라벨 */
+.hold-tag {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  background: #FFD700;
+  color: #111;
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  letter-spacing: 0.5px;
+}
+
+/* ─── 주사위 조작 카드 ─── */
+.dice-controls-card {
+  background: rgba(20, 15, 10, 0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  align-items: center;
-}
-
-.btn-roll {
-  width: 100%;
-  padding: 16px;
-  font-size: 1.15rem;
-  font-weight: 900;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #FF4757 0%, #FF6B81 100%);
-  color: white;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
-  transition: all 0.2s;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   gap: 10px;
 }
 
-.btn-roll:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(255, 71, 87, 0.6);
+.rolls-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.btn-roll:disabled {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.3);
-  cursor: not-allowed;
-  box-shadow: none;
+.rolls-left-badge {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.15);
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 .roll-hint {
   font-size: 0.8rem;
-  color: rgba(240,240,255,0.5);
-  text-align: center;
+  color: rgba(240, 240, 255, 0.6);
 }
 
-/* ─── 우측: 스코어보드 시트 ─── */
-.scoreboard-zone {
+.btn-roll-main {
+  width: 100%;
+  padding: 15px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #FF6B4A 0%, #E8003D 100%);
+  color: #FFF;
+  cursor: pointer;
   display: flex;
-  flex-direction: column;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 16px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-  overflow-y: auto;
-  max-height: calc(100vh - 120px);
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(232, 0, 61, 0.4);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.score-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+.btn-roll-main:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(232, 0, 61, 0.6);
 }
 
-.score-tab {
+.btn-roll-main:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-roll-main:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 감정표현 */
+.emotes-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-
-.score-tab.active {
-  background: rgba(255, 215, 0, 0.15);
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.score-tab.current-turn {
-  border-left: 3px solid var(--accent-red);
-}
-
-.score-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.score-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 4px;
-  font-size: 0.9rem;
-}
-
-.score-table th {
-  text-align: left;
-  padding: 8px 12px;
-  color: rgba(240,240,255,0.5);
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.score-row {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.score-row.selectable {
-  cursor: pointer;
-}
-
-.score-row.selectable:hover {
-  background: rgba(255, 215, 0, 0.12);
-}
-
-.score-row.filled {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.score-cell-name {
-  padding: 10px 14px;
-  font-weight: 700;
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
-}
-
-.score-cell-desc {
-  color: rgba(240,240,255,0.45);
-  font-size: 0.75rem;
-}
-
-.score-cell-val {
-  padding: 10px 16px;
-  text-align: right;
-  font-weight: 800;
-  font-size: 1.05rem;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-.score-cell-val.preview {
-  color: rgba(255, 215, 0, 0.6);
-  font-style: italic;
-}
-
-.score-cell-val.zero {
-  color: rgba(255, 71, 87, 0.6);
-}
-
-.score-subtotal-row {
-  background: rgba(30, 144, 255, 0.12);
-  border-radius: 8px;
-  font-weight: 800;
-}
-
-.bonus-progress-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.bonus-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #1E90FF, #2ED573);
-  width: 0%;
-  transition: width 0.3s;
-}
-
-.score-grand-total {
-  background: linear-gradient(135deg, rgba(255,215,0,0.15) 0%, rgba(255,71,87,0.15) 100%);
-  border-radius: 10px;
-  border: 1px solid rgba(255,215,0,0.3);
-  font-size: 1.1rem;
-  font-weight: 900;
-}
-
-/* ─── 감정표현 & 챗 패널 ─── */
-.emotes-bar {
-  display: flex;
-  gap: 8px;
-  padding: 8px 12px;
   background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.06);
-  align-items: center;
-  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 10px;
 }
 
 .btn-emote {
-  font-size: 1.3rem;
   background: none;
   border: none;
+  font-size: 1.2rem;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
   transition: transform 0.15s;
 }
-.btn-emote:hover {
-  transform: scale(1.25);
-}
+.btn-emote:hover { transform: scale(1.3); }
 
-/* ─── 결과 오버레이 모달 ─── */
+/* ─── 모달 ─── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 24, 0.85);
-  backdrop-filter: blur(10px);
-  display: flex;
-  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: none;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
 }
-
-.modal-overlay.show {
-  opacity: 1;
-  pointer-events: auto;
-}
+.modal-overlay.show { display: flex; }
 
 .modal-box {
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 24px;
-  padding: 32px;
-  max-width: 480px;
+  background: #1A1A30;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 28px;
+  max-width: 420px;
   width: 90%;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  transform: scale(0.9);
-  transition: transform 0.3s;
-}
-
-.modal-overlay.show .modal-box {
-  transform: scale(1);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
 }
 
 .modal-title {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 900;
-  margin-bottom: 12px;
-  color: var(--gold);
+  color: #FFD700;
+  margin-bottom: 8px;
 }
 
 .rank-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  margin: 8px 0;
+  padding: 10px 14px;
   background: rgba(255,255,255,0.05);
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
-
 .rank-item.first {
-  background: rgba(255, 215, 0, 0.15);
-  border: 1px solid rgba(255, 215, 0, 0.4);
-  font-weight: 800;
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
-/* ─── 모바일 반응형 ─── */
+/* 토스트 */
+#toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  color: #FFF;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  z-index: 9999;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ─── 반응형 모바일 ─── */
 @media (max-width: 860px) {
   .yacht-main {
     grid-template-columns: 1fr;
   }
-  .dice-tray {
-    min-height: 180px;
-    gap: 10px;
-  }
-  .dice-cube {
-    width: 58px;
-    height: 58px;
-    padding: 6px;
-  }
-  .pip {
-    width: 10px;
-    height: 10px;
-  }
   .scoreboard-zone {
-    max-height: none;
+    order: 2; /* 모바일에서는 주사위가 먼저, 점수판이 아래 */
+  }
+  .dice-zone {
+    order: 1;
   }
 }
 
+/* ─── 감정표현 팝업 (우노 스타일 애니메이션) ─── */
+#emote-popup-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.emote-popup {
+  position: fixed;
+  font-size: 2.2rem;
+  padding: 6px 12px;
+  background: rgba(20, 16, 24, 0.92);
+  border: 1.5px solid rgba(255, 215, 0, 0.6);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 15px rgba(255, 215, 0, 0.4);
+  pointer-events: none;
+  animation: emoteFloat 2.8s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+@keyframes emoteFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 15px) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1.15);
+  }
+  25% {
+    transform: translate(-50%, -18px) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -35px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60px) scale(0.8);
+  }
+}

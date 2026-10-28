@@ -24,7 +24,6 @@ const GAME_TYPE_NAMES = {
   liar: '🤫 라이어 게임 (Liar Game)',
   davinci: '🔢 다빈치 코드 (Da Vinci Code)',
   indian: '🤠 인디언 포커 (Indian Poker)',
-  rummikub: '🧩 루미큐브 (Rummikub)',
   uno: '🃏 UNO 카드 게임',
   holdem: '🎰 텍사스 홀덤 포커',
   halligalli: '🔔 할리갈리 (Halli Galli)'
@@ -37,13 +36,14 @@ function getGamePageUrl(targetGameType, roomCode, playerId) {
     liar: 'liar.html',
     davinci: 'davinci.html',
     indian: 'indian.html',
-    rummikub: 'rummikub.html',
     uno: 'game.html',
     holdem: 'holdem.html',
     halligalli: 'halligalli.html'
   };
   const target = routes[targetGameType] || 'yacht.html';
-  return `${target}?room=${roomCode}&player=${playerId}`;
+  const isLocal = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('uno_local_mode') === 'true') ||
+                  (typeof window !== 'undefined' && window.location.pathname.includes('-local'));
+  return `${target}?room=${roomCode}&player=${playerId}${isLocal ? '&local=true' : ''}`;
 }
 
 // DOM 요소
@@ -321,8 +321,14 @@ async function handleStartGame() {
   const currentGameType = room.gameType || 'yacht';
   let playerIds = Object.keys(room.players || {});
 
-  // 만약 방에 방장 혼자만 있다면 컴퓨터(봇)를 인원수에 맞춰서 자동 투입
-  if (playerIds.length === 1) {
+  // 라이어 게임은 봇전 불가 및 최소 3인 필수
+  if (currentGameType === 'liar') {
+    if (playerIds.length < 3) {
+      showToast('라이어 게임은 컴퓨터(봇) 대결이 불가하며, 최소 3명이 필요합니다.', 2500);
+      return;
+    }
+  } else if (playerIds.length === 1) {
+    // 만약 방에 방장 혼자만 있다면 컴퓨터(봇)를 인원수에 맞춰서 자동 투입
     const botNames = [
       { name: '알파 주사위 🤖', avatar: '🤖' },
       { name: '승부사 냥이 🐱', avatar: '🐱' },
@@ -419,15 +425,19 @@ function listenToRoom(roomCode) {
 }
 
 function updateWaitingRoom(room, roomCode) {
-  // 방 코드 표시
+  // 방 코드 표시 (마스킹 토글 지원)
   const codeEl = document.getElementById('display-room-code');
-  if (codeEl) codeEl.textContent = roomCode;
+  if (typeof window.updateRoomCodeDisplay === 'function') {
+    window.updateRoomCodeDisplay(roomCode);
+  } else if (codeEl) {
+    codeEl.textContent = roomCode;
+  }
 
   // 게임 종류 배지 업데이트
   const badgeEl = document.getElementById('game-type-badge');
+  const roomGameType = room.gameType || 'yacht';
   if (badgeEl) {
-    const roomGameType = room.gameType || 'yacht';
-    badgeEl.textContent = GAME_TYPE_NAMES[roomGameType] || '🎲 야추 다이스';
+    badgeEl.textContent = GAME_TYPE_NAMES[roomGameType] || '🎲 보드게임';
     badgeEl.style.display = 'block';
   }
 
@@ -472,16 +482,33 @@ function updateWaitingRoom(room, roomCode) {
   const countEl = document.getElementById('player-count');
   if (countEl) countEl.textContent = `${playerEntries.length} / ${room.maxPlayers}명`;
 
-  // 시작 버튼 (방장만 표시)
+  // [★ 핵심] 시작 버튼 & 라이어 게임 봇전 차단
   const startBtn = document.getElementById('btn-start');
+  const waitingHint = document.getElementById('waiting-hint');
+  const isLiarGame = (roomGameType === 'liar');
+
   if (startBtn) {
     startBtn.style.display = isHost ? 'block' : 'none';
-    if (playerEntries.length === 1) {
-      startBtn.disabled = false;
-      startBtn.textContent = `🤖 컴퓨터와 대결 시작!`;
+
+    if (isLiarGame) {
+      if (playerEntries.length < 3) {
+        startBtn.disabled = true;
+        startBtn.textContent = `👥 3명 이상 필요합니다 (${playerEntries.length}/3명)`;
+        if (waitingHint) waitingHint.textContent = '라이어 게임은 컴퓨터(봇) 대결이 불가하며, 최소 3명이 필요합니다.';
+      } else {
+        startBtn.disabled = false;
+        startBtn.textContent = `🤫 라이어 게임 시작! (${playerEntries.length}명)`;
+        if (waitingHint) waitingHint.textContent = isHost ? '인원이 모였습니다. 게임을 시작하세요!' : '방장이 게임을 시작할 때까지 기다려주세요.';
+      }
     } else {
-      startBtn.disabled = false;
-      startBtn.textContent = `🎮 게임 시작! (${playerEntries.length}명)`;
+      if (playerEntries.length === 1) {
+        startBtn.disabled = false;
+        startBtn.textContent = `🤖 컴퓨터와 대결 시작!`;
+      } else {
+        startBtn.disabled = false;
+        startBtn.textContent = `🎮 게임 시작! (${playerEntries.length}명)`;
+      }
+      if (waitingHint) waitingHint.textContent = isHost ? '인원이 부족하면 컴퓨터 봇과 대결할 수 있습니다.' : '방장이 게임을 시작할 때까지 기다려주세요.';
     }
   }
 }

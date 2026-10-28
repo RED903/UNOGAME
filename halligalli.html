@@ -111,6 +111,15 @@
   <div id="emote-popup-container"></div>
 
   <!-- Firebase 및 클라이언트 구동 스크립트 연결 -->
-  <script type="module" src="js/halligalli.js"></script>
+  <script>
+    if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
+      document.write('<script src="js/bundles/halligalli.bundle.js"><\/script>');
+    } else {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = 'js/halligalli.js';
+      document.body.appendChild(s);
+    }
+  </script>
 </body>
 </html>

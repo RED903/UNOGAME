@@ -536,7 +536,7 @@ const btnModalLobby = document.getElementById('btn-modal-lobby');
 const btnModalRestart = document.getElementById('btn-modal-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function initDavinciGame() {
   updateRoomCodeText();
   displayRoomCode?.addEventListener('click', () => {
     isCodeHidden = !isCodeHidden;
@@ -576,7 +576,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('다빈치 코드 초기화 실패:', err);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDavinciGame);
+} else {
+  initDavinciGame();
+}
 
 async function initDavinciGameState() {
   const pool = createTilePool();

@@ -57,7 +57,7 @@ const btnRestart = document.getElementById('btn-restart');
 const btnOverlayLeave = document.getElementById('btn-overlay-leave');
 
 // ─── 초기화 ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function _onGameDomReady() {
   displayRoomCode.textContent = myRoomCode;
   initEmotePanel();
 
@@ -961,3 +961,6 @@ function showEmotePopup(playerId, emote, timestamp) {
   setTimeout(() => popup.remove(), 2900);
 }
 
+
+
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', _onGameDomReady); } else { _onGameDomReady(); }

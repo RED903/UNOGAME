@@ -136,10 +136,7 @@
     if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
       document.write('<script src="js/bundles/yacht.bundle.js"><\/script>');
     } else {
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = 'js/yacht.js';
-      document.body.appendChild(s);
+      document.write('<script type="module" src="js/yacht.js"><\/script>');
     }
   </script>
 </body>

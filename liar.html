@@ -127,10 +127,7 @@
     if (window.location.protocol === 'file:' || new URLSearchParams(window.location.search).get('local') === 'true') {
       document.write('<script src="js/bundles/liar.bundle.js"><\/script>');
     } else {
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = 'js/liar.js';
-      document.body.appendChild(s);
+      document.write('<script type="module" src="js/liar.js"><\/script>');
     }
   </script>
 </body>

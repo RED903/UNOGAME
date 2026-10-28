@@ -75,7 +75,7 @@ const btnFinalLobby = document.getElementById('btn-final-lobby');
 const btnFinalRestart = document.getElementById('btn-final-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function initIndianGameEntry() {
   updateRoomCodeText();
   displayRoomCode.addEventListener('click', () => {
     isCodeHidden = !isCodeHidden;
@@ -115,7 +115,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('인디언 포커 초기화 오류:', err);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initIndianGameEntry);
+} else {
+  initIndianGameEntry();
+}
 
 async function initIndianGame() {
   const chips = {};

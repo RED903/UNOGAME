@@ -79,10 +79,15 @@ export const database = new Proxy({}, {
 // ─── 래퍼 API 함수들 ───────────────────────────────
 
 export function ref(db, path = '') {
-  if (isLocalMode()) {
-    return localDb.ref(db || localDb.database, path);
+  if (typeof db === 'string') {
+    path = db;
+    db = null;
   }
-  return fbRef(db || fbDatabase, path);
+  const activeDb = getActiveDatabase() || fbDatabase;
+  if (isLocalMode()) {
+    return localDb.ref(activeDb || localDb.database, path);
+  }
+  return fbRef(activeDb, path);
 }
 
 export function get(targetRef) {

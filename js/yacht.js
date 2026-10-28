@@ -76,7 +76,7 @@ const btnModalLobby = document.getElementById('btn-modal-lobby');
 const btnModalRestart = document.getElementById('btn-modal-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function initYachtGame() {
   updateRoomCodeText();
   displayRoomCode?.addEventListener('click', () => {
     isCodeHidden = !isCodeHidden;
@@ -115,7 +115,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('야추 초기화 실패:', err);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initYachtGame);
+} else {
+  initYachtGame();
+}
 
 /** 방장: 최초 게임 상태 생성 */
 async function initYachtGameState() {

@@ -508,7 +508,7 @@ const btnModalLobby = document.getElementById('btn-modal-lobby');
 const btnModalRestart = document.getElementById('btn-modal-restart');
 
 // ─── 초기화 ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+async function initLiarGame() {
   updateRoomCodeText();
   displayRoomCode?.addEventListener('click', () => {
     isCodeHidden = !isCodeHidden;
@@ -545,7 +545,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('라이어 게임 초기화 오류:', err);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initLiarGame);
+} else {
+  initLiarGame();
+}
 
 /** 방장: 신규 게임 상태 생성 */
 async function initLiarGameState() {
